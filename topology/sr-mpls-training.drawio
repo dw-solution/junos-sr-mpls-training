@@ -1,0 +1,272 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/28.2.5 Chrome/138.0.7204.251 Electron/37.6.1 Safari/537.36" version="28.2.5">
+  <diagram name="SR-MPLS Training Lab" id="sr-mpls-training">
+    <mxGraphModel dx="1200" dy="700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="0" fold="1" page="1" pageScale="1" pageWidth="2100" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="nTitle" value="SR-MPLS Training Lab — 10 vJunos Routers · IS-IS L2 + SR-MPLS · SRGB 16000 / range 8000 · iBGP AS 64512" style="text;html=1;align=center;fontSize=18;fontStyle=1;fontColor=#1F3864" parent="1" vertex="1">
+          <mxGeometry x="40" y="20" width="2020" height="34" as="geometry" />
+        </mxCell>
+
+        <!-- Plane A label -->
+        <mxCell id="nLabelA" value="Plane A" style="text;html=1;align=left;fontSize=13;fontStyle=1;fontColor=#2E75B6" parent="1" vertex="1">
+          <mxGeometry x="40" y="160" width="100" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Plane B label -->
+        <mxCell id="nLabelB" value="Plane B" style="text;html=1;align=left;fontSize=13;fontStyle=1;fontColor=#548235" parent="1" vertex="1">
+          <mxGeometry x="40" y="575" width="100" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- === NODES === -->
+
+        <!-- Client1 (Linux client, far left) -->
+        <mxCell id="nClient1" value="Client1&#xa;Linux Client" style="rounded=1;whiteSpace=wrap;html=1;fontColor=#FFFFFF;strokeColor=none;fontSize=11;align=center;verticalAlign=middle;fillColor=#595959" parent="1" vertex="1">
+          <mxGeometry x="20" y="350" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- CE1 (customer edge, left) -->
+        <mxCell id="nCE1" value="CE1&#xa;lo0 10.0.0.101/32" style="rounded=1;whiteSpace=wrap;html=1;fontColor=#FFFFFF;strokeColor=none;fontSize=11;align=center;verticalAlign=middle;fillColor=#548235" parent="1" vertex="1">
+          <mxGeometry x="230" y="350" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- PE1 (provider edge, left) -->
+        <mxCell id="nPE1" value="PE1&#xa;lo0 10.0.0.1/32 · SID 1" style="rounded=1;whiteSpace=wrap;html=1;fontColor=#FFFFFF;strokeColor=none;fontSize=11;align=center;verticalAlign=middle;fillColor=#2E75B6" parent="1" vertex="1">
+          <mxGeometry x="460" y="350" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- P1 (transit, upper-left, Plane A) -->
+        <mxCell id="nP1" value="P1&#xa;lo0 10.0.0.21/32 · SID 21" style="rounded=1;whiteSpace=wrap;html=1;fontColor=#FFFFFF;strokeColor=none;fontSize=11;align=center;verticalAlign=middle;fillColor=#4472C4" parent="1" vertex="1">
+          <mxGeometry x="710" y="140" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- P2 (transit, lower-left, Plane B) -->
+        <mxCell id="nP2" value="P2&#xa;lo0 10.0.0.22/32 · SID 22" style="rounded=1;whiteSpace=wrap;html=1;fontColor=#FFFFFF;strokeColor=none;fontSize=11;align=center;verticalAlign=middle;fillColor=#4472C4" parent="1" vertex="1">
+          <mxGeometry x="710" y="560" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- C1 (core/RR, upper-center, Plane A) -->
+        <mxCell id="nC1" value="C1 · Core-RR&#xa;lo0 10.0.0.11/32 · SID 11" style="rounded=1;whiteSpace=wrap;html=1;fontColor=#FFFFFF;strokeColor=none;fontSize=11;align=center;verticalAlign=middle;fillColor=#1F4E79" parent="1" vertex="1">
+          <mxGeometry x="980" y="140" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- C2 (core/RR, lower-center, Plane B) -->
+        <mxCell id="nC2" value="C2 · Core-RR&#xa;lo0 10.0.0.12/32 · SID 12" style="rounded=1;whiteSpace=wrap;html=1;fontColor=#FFFFFF;strokeColor=none;fontSize=11;align=center;verticalAlign=middle;fillColor=#1F4E79" parent="1" vertex="1">
+          <mxGeometry x="980" y="560" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- P3 (transit, upper-right, Plane A) -->
+        <mxCell id="nP3" value="P3&#xa;lo0 10.0.0.23/32 · SID 23" style="rounded=1;whiteSpace=wrap;html=1;fontColor=#FFFFFF;strokeColor=none;fontSize=11;align=center;verticalAlign=middle;fillColor=#4472C4" parent="1" vertex="1">
+          <mxGeometry x="1250" y="140" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- P4 (transit, lower-right, Plane B) -->
+        <mxCell id="nP4" value="P4&#xa;lo0 10.0.0.24/32 · SID 24" style="rounded=1;whiteSpace=wrap;html=1;fontColor=#FFFFFF;strokeColor=none;fontSize=11;align=center;verticalAlign=middle;fillColor=#4472C4" parent="1" vertex="1">
+          <mxGeometry x="1250" y="560" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- PE2 (provider edge, right) -->
+        <mxCell id="nPE2" value="PE2&#xa;lo0 10.0.0.2/32 · SID 2" style="rounded=1;whiteSpace=wrap;html=1;fontColor=#FFFFFF;strokeColor=none;fontSize=11;align=center;verticalAlign=middle;fillColor=#2E75B6" parent="1" vertex="1">
+          <mxGeometry x="1500" y="350" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- CE2 (customer edge, right) -->
+        <mxCell id="nCE2" value="CE2&#xa;lo0 10.0.0.102/32" style="rounded=1;whiteSpace=wrap;html=1;fontColor=#FFFFFF;strokeColor=none;fontSize=11;align=center;verticalAlign=middle;fillColor=#548235" parent="1" vertex="1">
+          <mxGeometry x="1730" y="350" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Client2 (Linux client, far right) -->
+        <mxCell id="nClient2" value="Client2&#xa;Linux Client" style="rounded=1;whiteSpace=wrap;html=1;fontColor=#FFFFFF;strokeColor=none;fontSize=11;align=center;verticalAlign=middle;fillColor=#595959" parent="1" vertex="1">
+          <mxGeometry x="1940" y="350" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- === EDGES === -->
+
+        <!-- Plane A backbone links (blue, strokeWidth=2) -->
+
+        <!-- PE1 - P1 : 10.1.1.0/30 A -->
+        <mxCell id="ePE1P1" value="10.1.1.0/30 A" style="endArrow=none;html=1;strokeColor=#2E75B6;strokeWidth=2;fontSize=9;fontColor=#2E75B6;labelBackgroundColor=#FFFFFF;" parent="1" source="nPE1" target="nP1" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- P1 - C1 : 10.1.1.4/30 A -->
+        <mxCell id="eP1C1" value="10.1.1.4/30 A" style="endArrow=none;html=1;strokeColor=#2E75B6;strokeWidth=2;fontSize=9;fontColor=#2E75B6;labelBackgroundColor=#FFFFFF;" parent="1" source="nP1" target="nC1" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- C1 - P3 : 10.1.1.8/30 A -->
+        <mxCell id="eC1P3" value="10.1.1.8/30 A" style="endArrow=none;html=1;strokeColor=#2E75B6;strokeWidth=2;fontSize=9;fontColor=#2E75B6;labelBackgroundColor=#FFFFFF;" parent="1" source="nC1" target="nP3" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- P3 - PE2 : 10.1.1.12/30 A -->
+        <mxCell id="eP3PE2" value="10.1.1.12/30 A" style="endArrow=none;html=1;strokeColor=#2E75B6;strokeWidth=2;fontSize=9;fontColor=#2E75B6;labelBackgroundColor=#FFFFFF;" parent="1" source="nP3" target="nPE2" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Plane B backbone links (green, strokeWidth=2) -->
+
+        <!-- PE1 - P2 : 10.1.1.16/30 B -->
+        <mxCell id="ePE1P2" value="10.1.1.16/30 B" style="endArrow=none;html=1;strokeColor=#548235;strokeWidth=2;fontSize=9;fontColor=#548235;labelBackgroundColor=#FFFFFF;" parent="1" source="nPE1" target="nP2" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- P2 - C2 : 10.1.1.20/30 B -->
+        <mxCell id="eP2C2" value="10.1.1.20/30 B" style="endArrow=none;html=1;strokeColor=#548235;strokeWidth=2;fontSize=9;fontColor=#548235;labelBackgroundColor=#FFFFFF;" parent="1" source="nP2" target="nC2" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- C2 - P4 : 10.1.1.24/30 B -->
+        <mxCell id="eC2P4" value="10.1.1.24/30 B" style="endArrow=none;html=1;strokeColor=#548235;strokeWidth=2;fontSize=9;fontColor=#548235;labelBackgroundColor=#FFFFFF;" parent="1" source="nC2" target="nP4" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- P4 - PE2 : 10.1.1.28/30 B -->
+        <mxCell id="eP4PE2" value="10.1.1.28/30 B" style="endArrow=none;html=1;strokeColor=#548235;strokeWidth=2;fontSize=9;fontColor=#548235;labelBackgroundColor=#FFFFFF;" parent="1" source="nP4" target="nPE2" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Cross-plane links (purple, plane X) -->
+
+        <!-- P1 - P2 : 10.1.1.32/30 X -->
+        <mxCell id="eP1P2" value="10.1.1.32/30 X" style="endArrow=none;html=1;strokeColor=#7030A0;strokeWidth=2;fontSize=9;fontColor=#7030A0;labelBackgroundColor=#FFFFFF;" parent="1" source="nP1" target="nP2" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- P3 - P4 : 10.1.1.36/30 X -->
+        <mxCell id="eP3P4" value="10.1.1.36/30 X" style="endArrow=none;html=1;strokeColor=#7030A0;strokeWidth=2;fontSize=9;fontColor=#7030A0;labelBackgroundColor=#FFFFFF;" parent="1" source="nP3" target="nP4" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- C1 - C2 : 10.1.1.40/30 X -->
+        <mxCell id="eC1C2" value="10.1.1.40/30 X" style="endArrow=none;html=1;strokeColor=#7030A0;strokeWidth=2;fontSize=9;fontColor=#7030A0;labelBackgroundColor=#FFFFFF;" parent="1" source="nC1" target="nC2" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- CE links (orange) -->
+
+        <!-- PE1 - CE1 (CSV plane: ce, no subnet) -->
+        <mxCell id="ePE1CE1" value="" style="endArrow=none;html=1;strokeColor=#C55A11;strokeWidth=2;fontSize=9;fontColor=#C55A11;labelBackgroundColor=#FFFFFF;" parent="1" source="nPE1" target="nCE1" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- PE2 - CE2 (CSV plane: ce, no subnet) -->
+        <mxCell id="ePE2CE2" value="" style="endArrow=none;html=1;strokeColor=#C55A11;strokeWidth=2;fontSize=9;fontColor=#C55A11;labelBackgroundColor=#FFFFFF;" parent="1" source="nPE2" target="nCE2" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Client access links (gray, unlabeled) -->
+
+        <!-- CE1 - Client1 -->
+        <mxCell id="eCE1Client1" value="" style="endArrow=none;html=1;strokeColor=#7F7F7F;strokeWidth=1.5;fontSize=9;fontColor=#7F7F7F;labelBackgroundColor=#FFFFFF;" parent="1" source="nCE1" target="nClient1" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- CE2 - Client2 -->
+        <mxCell id="eCE2Client2" value="" style="endArrow=none;html=1;strokeColor=#7F7F7F;strokeWidth=1.5;fontSize=9;fontColor=#7F7F7F;labelBackgroundColor=#FFFFFF;" parent="1" source="nCE2" target="nClient2" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Interface labels -->
+        <mxCell id="ePE1P1_if0" value="ge-0/0/1 .1" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#2E75B6;labelBackgroundColor=#FFFFFF;" parent="ePE1P1" vertex="1" connectable="0">
+          <mxGeometry x="-0.72" relative="1" as="geometry"><mxPoint x="0" y="0" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="ePE1P1_if1" value="ge-0/0/1 .2" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#2E75B6;labelBackgroundColor=#FFFFFF;" parent="ePE1P1" vertex="1" connectable="0">
+          <mxGeometry x="0.72" relative="1" as="geometry"><mxPoint x="0" y="0" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="eP1C1_if0" value="ge-0/0/2 .5" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#2E75B6;labelBackgroundColor=#FFFFFF;" parent="eP1C1" vertex="1" connectable="0">
+          <mxGeometry x="0" relative="1" as="geometry"><mxPoint x="-32" y="-11" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="eP1C1_if1" value="ge-0/0/1 .6" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#2E75B6;labelBackgroundColor=#FFFFFF;" parent="eP1C1" vertex="1" connectable="0">
+          <mxGeometry x="0" relative="1" as="geometry"><mxPoint x="32" y="11" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="eC1P3_if0" value="ge-0/0/2 .9" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#2E75B6;labelBackgroundColor=#FFFFFF;" parent="eC1P3" vertex="1" connectable="0">
+          <mxGeometry x="0" relative="1" as="geometry"><mxPoint x="-32" y="-11" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="eC1P3_if1" value="ge-0/0/1 .10" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#2E75B6;labelBackgroundColor=#FFFFFF;" parent="eC1P3" vertex="1" connectable="0">
+          <mxGeometry x="0" relative="1" as="geometry"><mxPoint x="32" y="11" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="eP3PE2_if0" value="ge-0/0/2 .13" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#2E75B6;labelBackgroundColor=#FFFFFF;" parent="eP3PE2" vertex="1" connectable="0">
+          <mxGeometry x="-0.72" relative="1" as="geometry"><mxPoint x="0" y="0" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="eP3PE2_if1" value="ge-0/0/1 .14" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#2E75B6;labelBackgroundColor=#FFFFFF;" parent="eP3PE2" vertex="1" connectable="0">
+          <mxGeometry x="0.72" relative="1" as="geometry"><mxPoint x="0" y="0" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="ePE1P2_if0" value="ge-0/0/2 .17" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#548235;labelBackgroundColor=#FFFFFF;" parent="ePE1P2" vertex="1" connectable="0">
+          <mxGeometry x="-0.72" relative="1" as="geometry"><mxPoint x="0" y="0" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="ePE1P2_if1" value="ge-0/0/1 .18" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#548235;labelBackgroundColor=#FFFFFF;" parent="ePE1P2" vertex="1" connectable="0">
+          <mxGeometry x="0.72" relative="1" as="geometry"><mxPoint x="0" y="0" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="eP2C2_if0" value="ge-0/0/2 .21" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#548235;labelBackgroundColor=#FFFFFF;" parent="eP2C2" vertex="1" connectable="0">
+          <mxGeometry x="0" relative="1" as="geometry"><mxPoint x="-32" y="-11" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="eP2C2_if1" value="ge-0/0/1 .22" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#548235;labelBackgroundColor=#FFFFFF;" parent="eP2C2" vertex="1" connectable="0">
+          <mxGeometry x="0" relative="1" as="geometry"><mxPoint x="32" y="11" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="eC2P4_if0" value="ge-0/0/2 .25" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#548235;labelBackgroundColor=#FFFFFF;" parent="eC2P4" vertex="1" connectable="0">
+          <mxGeometry x="0" relative="1" as="geometry"><mxPoint x="-32" y="-11" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="eC2P4_if1" value="ge-0/0/1 .26" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#548235;labelBackgroundColor=#FFFFFF;" parent="eC2P4" vertex="1" connectable="0">
+          <mxGeometry x="0" relative="1" as="geometry"><mxPoint x="32" y="11" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="eP4PE2_if0" value="ge-0/0/2 .29" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#548235;labelBackgroundColor=#FFFFFF;" parent="eP4PE2" vertex="1" connectable="0">
+          <mxGeometry x="-0.72" relative="1" as="geometry"><mxPoint x="0" y="0" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="eP4PE2_if1" value="ge-0/0/2 .30" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#548235;labelBackgroundColor=#FFFFFF;" parent="eP4PE2" vertex="1" connectable="0">
+          <mxGeometry x="0.72" relative="1" as="geometry"><mxPoint x="0" y="0" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="eP1P2_if0" value="ge-0/0/3 .33" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#7030A0;labelBackgroundColor=#FFFFFF;" parent="eP1P2" vertex="1" connectable="0">
+          <mxGeometry x="-0.72" relative="1" as="geometry"><mxPoint x="0" y="0" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="eP1P2_if1" value="ge-0/0/3 .34" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#7030A0;labelBackgroundColor=#FFFFFF;" parent="eP1P2" vertex="1" connectable="0">
+          <mxGeometry x="0.72" relative="1" as="geometry"><mxPoint x="0" y="0" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="eP3P4_if0" value="ge-0/0/3 .37" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#7030A0;labelBackgroundColor=#FFFFFF;" parent="eP3P4" vertex="1" connectable="0">
+          <mxGeometry x="-0.72" relative="1" as="geometry"><mxPoint x="0" y="0" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="eP3P4_if1" value="ge-0/0/3 .38" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#7030A0;labelBackgroundColor=#FFFFFF;" parent="eP3P4" vertex="1" connectable="0">
+          <mxGeometry x="0.72" relative="1" as="geometry"><mxPoint x="0" y="0" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="eC1C2_if0" value="ge-0/0/3 .41" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#7030A0;labelBackgroundColor=#FFFFFF;" parent="eC1C2" vertex="1" connectable="0">
+          <mxGeometry x="-0.72" relative="1" as="geometry"><mxPoint x="0" y="0" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="eC1C2_if1" value="ge-0/0/3 .42" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#7030A0;labelBackgroundColor=#FFFFFF;" parent="eC1C2" vertex="1" connectable="0">
+          <mxGeometry x="0.72" relative="1" as="geometry"><mxPoint x="0" y="0" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="ePE1CE1_if0" value="ge-0/0/3" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#C55A11;labelBackgroundColor=#FFFFFF;" parent="ePE1CE1" vertex="1" connectable="0">
+          <mxGeometry x="0" relative="1" as="geometry"><mxPoint x="0" y="11" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="ePE1CE1_if1" value="ge-0/0/1" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#C55A11;labelBackgroundColor=#FFFFFF;" parent="ePE1CE1" vertex="1" connectable="0">
+          <mxGeometry x="0" relative="1" as="geometry"><mxPoint x="0" y="-11" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="ePE2CE2_if0" value="ge-0/0/3" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#C55A11;labelBackgroundColor=#FFFFFF;" parent="ePE2CE2" vertex="1" connectable="0">
+          <mxGeometry x="0" relative="1" as="geometry"><mxPoint x="0" y="-11" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="ePE2CE2_if1" value="ge-0/0/1" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#C55A11;labelBackgroundColor=#FFFFFF;" parent="ePE2CE2" vertex="1" connectable="0">
+          <mxGeometry x="0" relative="1" as="geometry"><mxPoint x="0" y="11" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="eCE1Client1_if0" value="ge-0/0/2 .1" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#7F7F7F;labelBackgroundColor=#FFFFFF;" parent="eCE1Client1" vertex="1" connectable="0">
+          <mxGeometry x="0" relative="1" as="geometry"><mxPoint x="0" y="11" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="eCE1Client1_if1" value="eth0 .10" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#7F7F7F;labelBackgroundColor=#FFFFFF;" parent="eCE1Client1" vertex="1" connectable="0">
+          <mxGeometry x="0" relative="1" as="geometry"><mxPoint x="0" y="-11" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="eCE2Client2_if0" value="ge-0/0/2 .1" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#7F7F7F;labelBackgroundColor=#FFFFFF;" parent="eCE2Client2" vertex="1" connectable="0">
+          <mxGeometry x="0" relative="1" as="geometry"><mxPoint x="0" y="-11" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="eCE2Client2_if1" value="eth0 .10" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#7F7F7F;labelBackgroundColor=#FFFFFF;" parent="eCE2Client2" vertex="1" connectable="0">
+          <mxGeometry x="0" relative="1" as="geometry"><mxPoint x="0" y="11" as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- Legend -->
+        <mxCell id="nLegend" value="&lt;b&gt;Link key&lt;/b&gt;&lt;br&gt;&lt;b style=&quot;color:#2E75B6&quot;&gt;blue&lt;/b&gt; Plane A backbone (igp-metric 10)&amp;nbsp;&amp;nbsp;&lt;b style=&quot;color:#548235&quot;&gt;green&lt;/b&gt; Plane B backbone (igp-metric 10)&amp;nbsp;&amp;nbsp;&lt;b style=&quot;color:#7030A0&quot;&gt;purple&lt;/b&gt; Cross-plane X (P1-P2, P3-P4 igp-metric 30; C1-C2 igp-metric 10)&amp;nbsp;&amp;nbsp;&lt;b style=&quot;color:#C55A11&quot;&gt;orange&lt;/b&gt; PE-CE&amp;nbsp;&amp;nbsp;&lt;b style=&quot;color:#7F7F7F&quot;&gt;gray&lt;/b&gt; Client access&lt;br&gt;&lt;b&gt;Underlay&lt;/b&gt; IS-IS L2, post-convergence TI-LFA, ecmp-fast-reroute.&amp;nbsp;&amp;nbsp;&lt;b&gt;SR-MPLS&lt;/b&gt; SRGB 16000 / range 8000, explicit-null, TE l3-unicast-topology.&amp;nbsp;&amp;nbsp;&lt;b&gt;MGMT&lt;/b&gt; fxp0 on 192.168.90.0/24 (.24-.33, see training-nodes.csv)&lt;br&gt;&lt;b&gt;Interface labels&lt;/b&gt; interface name + host octet of the link /30 (full table in training-links.csv); on horizontal links the upper label belongs to the left-hand node. PE-CE uses VLAN 100 (CUST_A) and 200 (CUST_B): CE1 172.16.100.0/30 + 172.16.101.0/30, CE2 172.16.110.0/30 + 172.16.111.0/30" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F7F9FB;strokeColor=#9DB3CC;align=left;verticalAlign=top;fontSize=11;fontColor=#1F3864;spacingLeft=8;spacingTop=6" parent="1" vertex="1">
+          <mxGeometry x="40" y="770" width="1400" height="100" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

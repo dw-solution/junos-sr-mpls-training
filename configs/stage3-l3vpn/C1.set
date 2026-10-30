@@ -1,0 +1,70 @@
+#--------------------------------------------------------------------------
+# STAGE 0 BASE: C1 (core)
+#--------------------------------------------------------------------------
+set system host-name C1
+set system time-zone UTC
+set system root-authentication encrypted-password "$6$0OeCYa28gJMGyhoq$.jbWNa7gp5NIGSOpaCZuz0vvo.gOCwier5XtM.vBvBjIM3.vqOA0.Q9tQQiLeF3kGdset19/quynqKmyFGXBs/"
+set system services ssh root-login allow
+set system login user lab class super-user authentication encrypted-password "$6$0OeCYa28gJMGyhoq$.jbWNa7gp5NIGSOpaCZuz0vvo.gOCwier5XtM.vBvBjIM3.vqOA0.Q9tQQiLeF3kGdset19/quynqKmyFGXBs/"
+set chassis fpc 0 lite-mode
+set chassis network-services enhanced-ip
+set groups MTU interfaces <ge-*> mtu 9192
+set apply-groups MTU
+delete interfaces fxp0 unit 0 family inet dhcp
+set interfaces fxp0 unit 0 family inet address 192.168.90.26/24
+
+# --- Loopback ---
+set interfaces lo0 unit 0 family inet address 10.0.0.11/32
+set interfaces lo0 unit 0 family mpls
+set interfaces lo0 unit 0 family iso address 49.0001.0100.0000.0011.00
+
+# --- Transit interfaces (inet + iso + mpls) ---
+set interfaces ge-0/0/1 unit 0 family inet address 10.1.1.6/30
+set interfaces ge-0/0/1 unit 0 family iso
+set interfaces ge-0/0/1 unit 0 family mpls
+set interfaces ge-0/0/2 unit 0 family inet address 10.1.1.9/30
+set interfaces ge-0/0/2 unit 0 family iso
+set interfaces ge-0/0/2 unit 0 family mpls
+set interfaces ge-0/0/3 unit 0 family inet address 10.1.1.41/30
+set interfaces ge-0/0/3 unit 0 family iso
+set interfaces ge-0/0/3 unit 0 family mpls
+
+# --- Routing options ---
+set routing-options router-id 10.0.0.11
+set routing-options autonomous-system 64512
+set routing-options forwarding-table ecmp-fast-reroute
+
+# --- STAGE 1: IS-IS underlay ---
+set groups ISIS-PARAMETERS protocols isis interface <ge-*> point-to-point
+set groups ISIS-PARAMETERS protocols isis level 1 disable
+set groups ISIS-PARAMETERS protocols isis level 2 wide-metrics-only
+set apply-groups ISIS-PARAMETERS
+set protocols isis traffic-engineering l3-unicast-topology
+set protocols isis traffic-engineering advertisement always
+set protocols isis interface lo0.0 passive
+set protocols isis interface ge-0/0/1.0
+set protocols isis interface ge-0/0/1.0 level 2 metric 10
+set protocols isis interface ge-0/0/2.0
+set protocols isis interface ge-0/0/2.0 level 2 metric 10
+set protocols isis interface ge-0/0/3.0
+set protocols isis interface ge-0/0/3.0 level 2 metric 10
+
+# --- STAGE 2: SR-MPLS transport ---
+set protocols isis source-packet-routing srgb start-label 16000 index-range 8000
+set protocols isis source-packet-routing node-segment ipv4-index 11
+set protocols isis source-packet-routing explicit-null
+set protocols mpls traffic-engineering mpls-forwarding
+set protocols mpls interface lo0.0
+set protocols mpls interface ge-0/0/1.0
+set protocols mpls interface ge-0/0/2.0
+set protocols mpls interface ge-0/0/3.0
+
+# --- STAGE 3: L3VPN overlay (iBGP) ---
+set protocols bgp group OVERLAY type internal
+set protocols bgp group OVERLAY local-address 10.0.0.11
+set protocols bgp group OVERLAY family inet-vpn unicast
+set protocols bgp group OVERLAY family evpn signaling
+set protocols bgp group OVERLAY cluster 0.0.0.1
+set protocols bgp group OVERLAY neighbor 10.0.0.1
+set protocols bgp group OVERLAY neighbor 10.0.0.2
+set protocols bgp group OVERLAY neighbor 10.0.0.12

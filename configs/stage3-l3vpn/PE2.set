@@ -1,0 +1,84 @@
+#--------------------------------------------------------------------------
+# STAGE 0 BASE: PE2 (pe)
+#--------------------------------------------------------------------------
+set system host-name PE2
+set system time-zone UTC
+set system root-authentication encrypted-password "$6$0OeCYa28gJMGyhoq$.jbWNa7gp5NIGSOpaCZuz0vvo.gOCwier5XtM.vBvBjIM3.vqOA0.Q9tQQiLeF3kGdset19/quynqKmyFGXBs/"
+set system services ssh root-login allow
+set system login user lab class super-user authentication encrypted-password "$6$0OeCYa28gJMGyhoq$.jbWNa7gp5NIGSOpaCZuz0vvo.gOCwier5XtM.vBvBjIM3.vqOA0.Q9tQQiLeF3kGdset19/quynqKmyFGXBs/"
+set chassis fpc 0 lite-mode
+set chassis network-services enhanced-ip
+set groups MTU interfaces <ge-*> mtu 9192
+set apply-groups MTU
+delete interfaces fxp0 unit 0 family inet dhcp
+set interfaces fxp0 unit 0 family inet address 192.168.90.25/24
+
+# --- Loopback ---
+set interfaces lo0 unit 0 family inet address 10.0.0.2/32
+set interfaces lo0 unit 0 family mpls
+set interfaces lo0 unit 0 family iso address 49.0001.0100.0000.0002.00
+
+# --- Transit interfaces (inet + iso + mpls) ---
+set interfaces ge-0/0/1 unit 0 family inet address 10.1.1.14/30
+set interfaces ge-0/0/1 unit 0 family iso
+set interfaces ge-0/0/1 unit 0 family mpls
+set interfaces ge-0/0/2 unit 0 family inet address 10.1.1.30/30
+set interfaces ge-0/0/2 unit 0 family iso
+set interfaces ge-0/0/2 unit 0 family mpls
+
+# --- Routing options ---
+set routing-options router-id 10.0.0.2
+set routing-options autonomous-system 64512
+set routing-options forwarding-table ecmp-fast-reroute
+
+# --- STAGE 1: IS-IS underlay ---
+set groups ISIS-PARAMETERS protocols isis interface <ge-*> point-to-point
+set groups ISIS-PARAMETERS protocols isis level 1 disable
+set groups ISIS-PARAMETERS protocols isis level 2 wide-metrics-only
+set apply-groups ISIS-PARAMETERS
+set protocols isis traffic-engineering l3-unicast-topology
+set protocols isis traffic-engineering advertisement always
+set protocols isis interface lo0.0 passive
+set protocols isis interface ge-0/0/1.0
+set protocols isis interface ge-0/0/1.0 level 2 metric 10
+set protocols isis interface ge-0/0/2.0
+set protocols isis interface ge-0/0/2.0 level 2 metric 10
+
+# --- STAGE 2: SR-MPLS transport ---
+set protocols isis source-packet-routing srgb start-label 16000 index-range 8000
+set protocols isis source-packet-routing node-segment ipv4-index 2
+set protocols isis source-packet-routing explicit-null
+set protocols mpls traffic-engineering mpls-forwarding
+set protocols mpls interface lo0.0
+set protocols mpls interface ge-0/0/1.0
+set protocols mpls interface ge-0/0/2.0
+
+# --- STAGE 3: L3VPN overlay (iBGP) ---
+set protocols bgp group OVERLAY type internal
+set protocols bgp group OVERLAY local-address 10.0.0.2
+set protocols bgp group OVERLAY family inet-vpn unicast
+set protocols bgp group OVERLAY family evpn signaling
+set protocols bgp group OVERLAY neighbor 10.0.0.11
+set protocols bgp group OVERLAY neighbor 10.0.0.12
+set interfaces ge-0/0/3 vlan-tagging
+set interfaces ge-0/0/3 encapsulation flexible-ethernet-services
+set interfaces ge-0/0/3 unit 100 vlan-id 100
+set interfaces ge-0/0/3 unit 100 family inet address 172.16.110.1/30
+set routing-instances CUST_A instance-type vrf
+set routing-instances CUST_A interface ge-0/0/3.100
+set routing-instances CUST_A route-distinguisher 10.0.0.2:100
+set routing-instances CUST_A vrf-target target:64512:100
+set routing-instances CUST_A vrf-table-label
+set routing-instances CUST_A protocols bgp group CE type external
+set routing-instances CUST_A protocols bgp group CE peer-as 65002
+set routing-instances CUST_A protocols bgp group CE neighbor 172.16.110.2
+set interfaces ge-0/0/3 unit 200 vlan-id 200
+set interfaces ge-0/0/3 unit 200 family inet address 172.16.111.1/30
+set routing-instances CUST_B instance-type vrf
+set routing-instances CUST_B interface ge-0/0/3.200
+set routing-instances CUST_B route-distinguisher 10.0.0.2:200
+set routing-instances CUST_B vrf-target target:64512:200
+set routing-instances CUST_B vrf-table-label
+set routing-instances CUST_B protocols bgp group CE type external
+set routing-instances CUST_B protocols bgp group CE peer-as 65002
+set routing-instances CUST_B protocols bgp group CE neighbor 172.16.111.2
