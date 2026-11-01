@@ -1,6 +1,6 @@
 # SR-MPLS Eight-Step Troubleshooting Guide
 
-This guide covers the verification and troubleshooting flow for the GNS3 SR-MPLS training lab. Topology reference: PE1 loopback 10.0.0.1 (node-SID 16001), PE2 loopback 10.0.0.2 (SID 16002), C1 10.0.0.11 (SID 16011), C2 10.0.0.12 (SID 16012), P1 10.0.0.21 (SID 16021), P2 10.0.0.22 (SID 16022), P3 10.0.0.23 (SID 16023), P4 10.0.0.24 (SID 16024). SRGB start 16000, range 8000. VRFs: CUST_A (RT target:64512:100, algo 128), CUST_B (RT target:64512:200, algo 129 delay-optimized). Plane A: PE1-P1-C1-P3-PE2. Plane B: PE1-P2-C2-P4-PE2.
+This guide covers the verification and troubleshooting flow for the GNS3 SR-MPLS training lab. Topology reference: PE1 loopback 10.20.255.1 (node-SID 16001), PE2 loopback 10.20.255.2 (SID 16002), C1 10.20.255.11 (SID 16011), C2 10.20.255.12 (SID 16012), P1 10.20.255.21 (SID 16021), P2 10.20.255.22 (SID 16022), P3 10.20.255.23 (SID 16023), P4 10.20.255.24 (SID 16024). SRGB start 16000, range 8000. VRFs: CUST_A (RT target:64512:100, algo 128), CUST_B (RT target:64512:200, algo 129 delay-optimized). Plane A: PE1-C1-PE2. Plane B: PE1-C2-PE2.
 
 Work through the steps in order: underlay before transport, transport before service. A broken lower layer masks faults at higher layers.
 
@@ -29,16 +29,16 @@ ge-0/0/1.0            P2             2  Up                    19
 
 **Command:** `show route table inetcolor.0`
 
-*What to look for: For each remote PE loopback, expect two colored route entries: one ending in `-128` and one ending in `-129`. From PE1, `10.0.0.2-128<c>/64` and `10.0.0.2-129<c>/64` must both appear. If the `-129` entry is missing, a `delay-measurement` stanza is not advertising APP-LRTT sub-TLVs on one or more interfaces, or Flex-Algo 129 has not converged.*
+*What to look for: For each remote PE loopback, expect two colored route entries: one ending in `-128` and one ending in `-129`. From PE1, `10.20.255.2-128<c>/64` and `10.20.255.2-129<c>/64` must both appear. If the `-129` entry is missing, a `delay-measurement` stanza is not advertising APP-LRTT sub-TLVs on one or more interfaces, or Flex-Algo 129 has not converged.*
 
 ```
 root@PE1> show route table inetcolor.0
-10.0.0.2-128<c>/64
+10.20.255.2-128<c>/64
                    *[L-ISIS/14] 00:15:32, metric 40
-                    >  to 10.1.1.2 via ge-0/0/0.0, Push 16002
-10.0.0.2-129<c>/64
+                    >  to 10.20.0.2 via ge-0/0/0.0, Push 16002
+10.20.255.2-129<c>/64
                    *[L-ISIS/14] 00:15:32, metric 300
-                    >  to 10.1.1.2 via ge-0/0/0.0, Push 16002
+                    >  to 10.20.0.2 via ge-0/0/0.0, Push 16002
 ```
 
 ---
@@ -49,7 +49,7 @@ root@PE1> show route table inetcolor.0
 
 **Command:** `show route <CE-destination-prefix> extensive table CUST_B.inet.0 | match Communities`
 
-*What to look for: CUST_A routes must carry `target:64512:100`. CUST_B routes must carry `target:64512:200` and `color:0:129`. If `color:0:129` is absent, CUST_B falls back to best-effort (algo 128). If the route-target does not match the local VRF import policy, the route does not appear in the VRF table at all, even though it is present in `bgp.l3vpn.0`. Confirm presence in bgp.l3vpn.0 with `show route receive-protocol bgp 10.0.0.11 table bgp.l3vpn.0`.*
+*What to look for: CUST_A routes must carry `target:64512:100`. CUST_B routes must carry `target:64512:200` and `color:0:129`. If `color:0:129` is absent, CUST_B falls back to best-effort (algo 128). If the route-target does not match the local VRF import policy, the route does not appear in the VRF table at all, even though it is present in `bgp.l3vpn.0`. Confirm presence in bgp.l3vpn.0 with `show route receive-protocol bgp 10.20.255.11 table bgp.l3vpn.0`.*
 
 ```
 root@PE1> show route 192.168.20.0/24 extensive table CUST_B.inet.0 | match Communities
@@ -103,11 +103,11 @@ Rewrite rule: SR-MPLS-EXP-REWRITE, Code point type: exp
 
 **Command:** `show isis route <remote-loopback> extensive`
 
-*What to look for: `TILFA computed MPLS paths` with `Valid: 1` means a pre-programmed backup is ready. From PE1, `show isis route 10.0.0.2 extensive` should show plane-A and plane-B primary paths toward PE2 (SID 16002) and a valid TI-LFA backup. `Valid: 0` indicates the `use-post-convergence-lfa` mandate is missing or deactivated.*
+*What to look for: `TILFA computed MPLS paths` with `Valid: 1` means a pre-programmed backup is ready. From PE1, `show isis route 10.20.255.2 extensive` should show plane-A and plane-B primary paths toward PE2 (SID 16002) and a valid TI-LFA backup. `Valid: 0` indicates the `use-post-convergence-lfa` mandate is missing or deactivated.*
 
 ```
-root@PE1> show isis route 10.0.0.2 extensive
-10.0.0.2/32  L2  metric 40
+root@PE1> show isis route 10.20.255.2 extensive
+10.20.255.2/32  L2  metric 40
   ge-0/0/0.0  IPV4 P1
   ge-0/0/1.0  IPV4 P2
   TILFA computed MPLS paths, Count:1, Valid:1
@@ -127,7 +127,7 @@ root@PE1> show isis route 10.0.0.2 extensive
 ```
 root@P1> show route table mpls.0 | match 16002
 16002              *[L-ISIS/14] 00:12:14, metric 30
-                    >  to 10.1.1.6 via ge-0/0/1.0, Swap 16002
+                    >  to 10.20.0.6 via ge-0/0/1.0, Swap 16002
 ```
 
 ---
@@ -138,14 +138,14 @@ root@P1> show route table mpls.0 | match 16002
 
 **Command:** `show route <remote-pe-loopback> table inet.3 extensive`
 
-*What to look for: `Label operation: Push <node-SID>` is required. From PE1, `show route 10.0.0.2 table inet.3 extensive` must show `Push 16002`. If `inet.3` has no entry for the remote PE, or the label operation is wrong, all VRF routes for CUST_A and CUST_B remain stranded in `bgp.l3vpn.0` and are unreachable regardless of BGP session state or correct route-targets.*
+*What to look for: `Label operation: Push <node-SID>` is required. From PE1, `show route 10.20.255.2 table inet.3 extensive` must show `Push 16002`. If `inet.3` has no entry for the remote PE, or the label operation is wrong, all VRF routes for CUST_A and CUST_B remain stranded in `bgp.l3vpn.0` and are unreachable regardless of BGP session state or correct route-targets.*
 
 ```
-root@PE1> show route 10.0.0.2 table inet.3 extensive
+root@PE1> show route 10.20.255.2 table inet.3 extensive
 inet.3: 7 destinations, 7 routes (7 active, 0 holddown, 0 hidden)
-10.0.0.2/32 (1 entry, 1 announced)
+10.20.255.2/32 (1 entry, 1 announced)
         *L-ISIS Preference: 14
-                Next hop: 10.1.1.2 via ge-0/0/0.0, selected
+                Next hop: 10.20.0.2 via ge-0/0/0.0, selected
                 Label operation: Push 16002
                 Label TTL action: prop-ttl
 ```

@@ -19,10 +19,11 @@ last resort; most import failures are a one-line template or image mismatch.
 
 | Symptom on import | Most likely cause | Action |
 | --- | --- | --- |
-| "Missing image" prompt | vJunos image version does not match the README pin (24.2R1-S2) | Install the pinned image, retry import. No rebuild needed. |
+| "Missing image" prompt | vJunos image version does not match the README pin (25.4R1.12) | Install the pinned image, retry import. No rebuild needed. |
 | Nodes import but will not start | Template vCPU/RAM differs from the source | Match the template (RAM 6144, adapters 18), retry. No rebuild. |
+| Nodes start, console scrolls ZTP messages, routing never converges, node ignores `request system halt` | Zero-Touch Provisioning still enabled; auto-image upgrade retries forever and starves the routing daemons | On each node: `configure`, `delete chassis auto-image-upgrade`, `commit`. Present in `stage0-base`, so this only bites hand-bootstrapped nodes. No rebuild. |
 | Links missing or on wrong ports | Interface-to-adapter map differs | Rebuild is the clean fix (Section 4 uses the exact map). |
-| Client nodes absent or unknown template | `ubuntu24.04` not present | Add the client template, or rebuild (Section 4 recreates them). |
+| Client nodes absent or unknown template | `RockyLinux 9.3` not present | Add the client template, or rebuild (Section 4 recreates them). |
 | Import aborts / project corrupt | Portable file damaged in transit | Rebuild from Section 2 onward. |
 
 If any row says "No rebuild," fix that and re-import. Otherwise continue.
@@ -34,8 +35,8 @@ If any row says "No rebuild," fix that and re-import. Otherwise continue.
 A rebuild is exactly the primary build, run on the receiving server. Do not duplicate
 the steps here; follow **`instructor-build-guide.md` Steps 1 through 8** end to end:
 
-1. **Step 1 Prerequisites** - image 24.2R1-S2, templates `vJunos-router` and
-   `ubuntu24.04`, a host NIC on the management LAN (eno0), repo clone, Python env.
+1. **Step 1 Prerequisites** - image 25.4R1.12, templates `vJunos-router` and
+   `RockyLinux 9.3`, a host NIC on the management LAN (bridge103), repo clone, Python env.
 2. **Step 2** - regenerate and validate the configs (`ALL CHECKS PASSED`).
 3. **Step 3** - confirm the interface-to-adapter map.
 4. **Steps 4-5** - build the topology with `build_gns3_project.py`, which also wires

@@ -1,12 +1,12 @@
 # Maintainer Notes
 
-Portable, self-paced lab that teaches Junos and SR-MPLS to mastery level.
-Reference detail for whoever maintains the lab. The design rationale is in `docs/design.md`.
+Reference detail for whoever maintains the lab. Paths are relative to the repo root.
 
 ## Topology diagram
 `topology/sr-mpls-training.png` is the diagram to build from: every node, link, /30,
-and interface name. Source is `topology/sr-mpls-training.drawio`; after editing it,
-re-export with `drawio -x -f png -s 2 -o sr-mpls-training.png sr-mpls-training.drawio`.
+and interface name. Both it and `topology/sr-mpls-training.drawio` are generated from
+the CSVs by `python generate_topology_diagram.py` (the PNG needs the drawio CLI), so
+change the CSVs and regenerate rather than editing the diagram by hand.
 `training-links.csv` is the same wiring as a table.
 
 ## Regenerate configs
@@ -26,8 +26,7 @@ exact commands to type, verification with expected output, a student-facing brea
 exercise, and brief-it-back checkpoints. The instructor answer key
 (`guide/instructor-answer-key.md`) holds the fault-injection and fix commands; the
 eight-step diagnosis flow is in `guide/troubleshooting.md`. Both docx targets are
-regenerable build output; the copies committed here (with PDFs) are for convenience,
-so rebuild after editing `modules.py`.
+regenerable build output and are gitignored.
 
 ## Deliverables map
 - Instructor build (start to finish): `instructor-build-guide.md` is the primary,
@@ -40,8 +39,8 @@ so rebuild after editing `modules.py`.
 - Instructor answer key and eight-step diagnosis flow: `guide/instructor-answer-key.md`,
   `guide/troubleshooting.md`.
 
-## Build the GNS3 project (on 192.168.90.230)
-    python build_gns3_project.py          # defaults to http://192.168.90.230:3080
+## Build the GNS3 project (on 10.1.1.5)
+    python build_gns3_project.py          # defaults to http://10.1.1.5:3080
     python push_lab_configs.py            # after nodes boot and fxp0 is reachable
 
 ## GNS3 node templates (must match on both servers)
@@ -52,7 +51,7 @@ so rebuild after editing `modules.py`.
   ge-0/0/1=adapter2, ge-0/0/2=adapter3, ge-0/0/3=adapter4, ge-0/0/4=adapter5.
   The CEs deliberately avoid ge-0/0/0 (flaky in GNS3); they use ge-0/0/1
   (toward PE) and ge-0/0/2 (toward client).
-- Client: `ubuntu24.04` (qemu Linux VM, 1 adapter), the default in
+- Client: `RockyLinux 9.3` (qemu Linux VM, 1 adapter), the default in
   build_gns3_project.py. The GNS3 server is offline, so there is no runtime
   apt install: the M5 QoS test uses only what the image already carries.
   Reachability is `ping`; DSCP marking is `ping -Q <tos>` (present in every
@@ -64,10 +63,10 @@ so rebuild after editing `modules.py`.
 
 ## Management plane
 build_gns3_project.py wires this automatically: it creates MGMT-SW (Ethernet
-switch) and MGMT-CLOUD (bound to host NIC eno0, override with
---mgmt-interface) and connects fxp0 of all 10 vJunos nodes onto the
-management LAN (192.168.90.0/24; GNS3 server 192.168.90.230, push host 192.168.90.220). Node
-mgmt addresses are 192.168.90.24 through 192.168.90.33, one per node in training-nodes.csv. push_lab_configs.py reaches the
+switch) and MGMT-CLOUD (bound to host NIC bridge103, override with
+--mgmt-interface) and connects fxp0 of all 6 vJunos nodes onto the
+management LAN (VLAN 103, 10.0.0.0/24; GNS3 server 10.1.1.5, push host 10.0.0.253). Node
+mgmt addresses are 10.0.0.40 through 10.0.0.49, one per node in training-nodes.csv. push_lab_configs.py reaches the
 nodes directly on that LAN. Lab login is user 'lab' (or root), password
 'labpassword'; export LAB_PASSWORD to override the push password.
 
@@ -78,4 +77,4 @@ push_lab_configs.py drives stage1-isis through stage6-frr over SSH.
 
 ## Image pinning
 vJunos-router image and GNS3 template name must match EXACTLY on both
-servers. Record the chosen version here before export: 24.2R1-S2.
+servers. Record the chosen version here before export: 25.4R1.12.

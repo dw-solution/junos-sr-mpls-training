@@ -8,11 +8,13 @@ set system services ssh root-login allow
 set system login user lab class super-user authentication encrypted-password "$6$0OeCYa28gJMGyhoq$.jbWNa7gp5NIGSOpaCZuz0vvo.gOCwier5XtM.vBvBjIM3.vqOA0.Q9tQQiLeF3kGdset19/quynqKmyFGXBs/"
 set chassis fpc 0 lite-mode
 set chassis network-services enhanced-ip
+delete chassis auto-image-upgrade
 set groups MTU interfaces <ge-*> mtu 9192
 set apply-groups MTU
-delete interfaces fxp0 unit 0 family inet dhcp
-set interfaces fxp0 unit 0 family inet address 192.168.90.33/24
+delete interfaces fxp0 unit 0 family inet
+set interfaces fxp0 unit 0 family inet address 10.0.0.45/24
 
 # --- Loopback ---
-set interfaces lo0 unit 0 family inet address 10.0.0.102/32
+delete interfaces lo0 unit 0 family inet
+set interfaces lo0 unit 0 family inet address 10.20.255.102/32
 set interfaces ge-0/0/1 vlan-tagging

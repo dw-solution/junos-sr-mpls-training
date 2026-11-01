@@ -1,0 +1,47 @@
+#--------------------------------------------------------------------------
+# STAGE 0 BASE: CE2 (ce)
+#--------------------------------------------------------------------------
+set system host-name CE2
+set system time-zone UTC
+set system root-authentication encrypted-password "$6$0OeCYa28gJMGyhoq$.jbWNa7gp5NIGSOpaCZuz0vvo.gOCwier5XtM.vBvBjIM3.vqOA0.Q9tQQiLeF3kGdset19/quynqKmyFGXBs/"
+set system services ssh root-login allow
+set system login user lab class super-user authentication encrypted-password "$6$0OeCYa28gJMGyhoq$.jbWNa7gp5NIGSOpaCZuz0vvo.gOCwier5XtM.vBvBjIM3.vqOA0.Q9tQQiLeF3kGdset19/quynqKmyFGXBs/"
+set chassis fpc 0 lite-mode
+set chassis network-services enhanced-ip
+delete chassis auto-image-upgrade
+set groups MTU interfaces <ge-*> mtu 9192
+set apply-groups MTU
+delete interfaces fxp0 unit 0 family inet
+set interfaces fxp0 unit 0 family inet address 10.0.0.45/24
+
+# --- Loopback ---
+delete interfaces lo0 unit 0 family inet
+set interfaces lo0 unit 0 family inet address 10.20.255.102/32
+set interfaces ge-0/0/1 vlan-tagging
+
+# --- STAGE 3: CE service (eBGP to PE) ---
+set interfaces ge-0/0/1 unit 100 vlan-id 100
+set interfaces ge-0/0/1 unit 100 family inet address 172.16.110.2/30
+set routing-instances CUST_A instance-type virtual-router
+set routing-instances CUST_A interface ge-0/0/1.100
+set routing-instances CUST_A interface lo0.100
+set interfaces lo0 unit 100 family inet address 192.168.50.1/32
+set routing-instances CUST_A protocols bgp group TO-PE type external
+set routing-instances CUST_A protocols bgp group TO-PE peer-as 64512
+set routing-instances CUST_A protocols bgp group TO-PE neighbor 172.16.110.1
+set routing-instances CUST_A protocols bgp group TO-PE export ADV-CUST
+set interfaces ge-0/0/1 unit 200 vlan-id 200
+set interfaces ge-0/0/1 unit 200 family inet address 172.16.111.2/30
+set routing-instances CUST_B instance-type virtual-router
+set routing-instances CUST_B interface ge-0/0/1.200
+set routing-instances CUST_B interface lo0.200
+set interfaces lo0 unit 200 family inet address 192.168.50.1/32
+set routing-instances CUST_B protocols bgp group TO-PE type external
+set routing-instances CUST_B protocols bgp group TO-PE peer-as 64512
+set routing-instances CUST_B protocols bgp group TO-PE neighbor 172.16.111.1
+set routing-instances CUST_B protocols bgp group TO-PE export ADV-CUST
+set interfaces ge-0/0/2 unit 0 family inet address 10.50.2.1/24
+set routing-instances CUST_A interface ge-0/0/2.0
+set routing-options autonomous-system 65002
+set policy-options policy-statement ADV-CUST term lo from protocol direct
+set policy-options policy-statement ADV-CUST term lo then accept

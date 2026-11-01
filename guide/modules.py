@@ -11,11 +11,10 @@ All commands and expected outputs are grounded in the generated stage configs
 use PE1 unless a specific node is required by the topology.
 
 Topology quick reference (also on every handout):
-  PE1 10.0.0.1 SID16001   PE2 10.0.0.2 SID16002
-  C1  10.0.0.11 SID16011  C2  10.0.0.12 SID16012   (core route reflectors)
-  P1  10.0.0.21 SID16021  P2  10.0.0.22 SID16022
-  P3  10.0.0.23 SID16023  P4  10.0.0.24 SID16024
-  SRGB start 16000 range 8000. Plane A: PE1-P1-C1-P3-PE2. Plane B: PE1-P2-C2-P4-PE2.
+  PE1 10.20.255.1 SID16001   PE2 10.20.255.2 SID16002
+  C1  10.20.255.11 SID16011  C2  10.20.255.12 SID16012   (core route reflectors)
+  SRGB start 16000 range 8000. Plane A: PE1-C1-PE2. Plane B: PE1-C2-PE2.
+  C1-C2 cross-link (metric 30) is the TI-LFA backup path.
   CUST_A RT target:64512:100 (algo 128). CUST_B RT target:64512:200 (algo 129, delay).
 """
 
@@ -104,10 +103,10 @@ M0 = {
          "read": "The committed host-name is PE1, not PE1-TEST. If it still reads "
                  "PE1-TEST, your rollback change was never committed."},
         {"cmd": "show interfaces terse | match \"lo0|ge-0/0\"",
-         "expect": "lo0.0    up  up  inet   10.0.0.1/32\n"
-                   "ge-0/0/1.0  up  up  inet  10.1.1.1/30\n"
-                   "ge-0/0/2.0  up  up  inet  10.1.1.17/30",
-         "read": "Loopback 10.0.0.1/32 and both transit interfaces are present and "
+         "expect": "lo0.0    up  up  inet   10.20.255.1/32\n"
+                   "ge-0/0/1.0  up  up  inet  10.20.0.1/30\n"
+                   "ge-0/0/2.0  up  up  inet  10.20.0.17/30",
+         "read": "Loopback 10.20.255.1/32 and both transit interfaces are present and "
                  "up. These are the addresses every later module depends on."},
         {"cmd": "show system commit",
          "expect": "0   2026-07-01 14:22:07 UTC by lab via cli\n"
@@ -167,7 +166,7 @@ M1 = {
         "applied with apply-groups, which also marks every ge- interface "
         "point-to-point.",
         "Each router's identity in IS-IS is its NET address, formatted "
-        "49.0001.<loopback-in-hex>.00. PE1's loopback 10.0.0.1 becomes "
+        "49.0001.<loopback-in-hex>.00. PE1's loopback 10.20.255.1 becomes "
         "49.0001.0100.0000.0001.00. The loopback interface is placed in IS-IS as "
         "'passive' so its /32 is advertised as a reachable prefix but no adjacency "
         "is ever attempted over it; that /32 is what SR node-SIDs and BGP next-hops "
@@ -177,7 +176,7 @@ M1 = {
         "advertised even without an RSVP session. Later modules (Flex-Algo, TI-LFA) "
         "read that TE database. IS-IS chooses paths by lowest cumulative metric, "
         "not hop count, so the metrics you set here decide which plane traffic "
-        "takes. Every core link is metric 10; the P1-P2 and P3-P4 cross-links are "
+        "takes. Every core link is metric 10; the C1-C2 cross-link is "
         "metric 30 so they are used only as backups.",
     ],
     "build": [
@@ -198,18 +197,18 @@ M1 = {
                   "set protocols isis interface ge-0/0/2.0",
                   "set protocols isis interface ge-0/0/2.0 level 2 metric 10",
                   "commit and-quit"],
-         "note": "PE1's two transit links are ge-0/0/1 (toward P1, plane A) and "
-                 "ge-0/0/2 (toward P2, plane B). Each node's interfaces and metrics "
+         "note": "PE1's two transit links are ge-0/0/1 (toward C1, plane A) and "
+                 "ge-0/0/2 (toward C2, plane B). Each node's interfaces and metrics "
                  "are in its own configs/stage1-isis/<node>.set. Repeat per node, or "
                  "push the whole stage with 'python push_lab_configs.py stage1-isis'."},
     ],
     "verify": [
         {"cmd": "show isis adjacency",
          "expect": "Interface             System   L State   Hold (secs)\n"
-                   "ge-0/0/1.0            P1       2  Up            23\n"
-                   "ge-0/0/2.0            P2       2  Up            19",
+                   "ge-0/0/1.0            C1       2  Up            23\n"
+                   "ge-0/0/2.0            C2       2  Up            19",
          "read": "Every expected neighbor is Up. PE1 and PE2 have two neighbors "
-                 "each; P and C routers have two or three. A Down or Init state "
+                 "each; the cores have three each. A Down or Init state "
                  "points at a physical link, MTU, or family-iso problem, not a "
                  "metric problem."},
         {"cmd": "show isis interface",
@@ -224,12 +223,13 @@ M1 = {
                    "LSP ID        Sequence  Checksum  Lifetime\n"
                    "PE1.00-00     0x12      0x8a3c    1094\n"
                    "PE2.00-00     0x0f      0x77b1    1101\n"
-                   "P1.00-00 ... C1.00-00 ... (all 8 SR nodes present)",
-         "read": "All eight SR nodes (PE1, PE2, C1, C2, P1-P4) appear in the "
+                   "C1.00-00      0x11      0x64d2    1098\n"
+                   "C2.00-00      0x10      0x51a9    1102",
+         "read": "All four SR nodes (PE1, PE2, C1, C2) appear in the "
                  "database. A missing LSP means that node has no adjacency into the "
                  "domain."},
-        {"cmd": "ping 10.0.0.2 source 10.0.0.1 rapid",
-         "expect": "PING 10.0.0.2 (10.0.0.2): 56 data bytes\n"
+        {"cmd": "ping 10.20.255.2 source 10.20.255.1 rapid",
+         "expect": "PING 10.20.255.2 (10.20.255.2): 56 data bytes\n"
                    "!!!!!\n"
                    "round-trip min/avg/max = 1.2/2.0/3.1 ms",
          "read": "PE1's loopback reaches PE2's loopback through the IS-IS underlay. "
@@ -240,7 +240,7 @@ M1 = {
     "breakfix": {
         "scenario":
             "IS-IS is up and PE1 can reach PE2's loopback, but a traceroute shows "
-            "traffic taking the plane-B path (PE1-P2-C2-P4-PE2) when the design says "
+            "traffic taking the plane-B path (PE1-C2-PE2) when the design says "
             "plane A should be equal-cost. Every adjacency reads Up, so nothing "
             "looks wrong at first glance.",
         "task":
@@ -249,7 +249,7 @@ M1 = {
         "hint":
             "Adjacency Up tells you nothing about metrics. Compare the advertised "
             "metric on each plane-A link in the database against the design value "
-            "of 10, and check the total cost of 'show route 10.0.0.2' against the "
+            "of 10, and check the total cost of 'show route 10.20.255.2' against the "
             "expected 40.",
     },
     "brief": [
@@ -340,33 +340,38 @@ M2 = {
                  "switch labels. PE1's transit links are ge-0/0/1 (plane A) and "
                  "ge-0/0/2 (plane B). Each node lists its own interfaces in "
                  "configs/stage2-sr/<node>.set, so repeat per node or push the whole "
-                 "stage with 'python push_lab_configs.py stage2-sr'."},
+                 "stage with 'python push_lab_configs.py stage2-sr'. After this push, "
+                 "or any later push that touches segment-routing configuration, "
+                 "restart routing on every node in the topology, not only the ones "
+                 "you changed; the SRGB does not take effect until then, and a "
+                 "skipped node leaves IS-IS and BGP looking perfectly healthy while "
+                 "forwarding is silently broken. M7's build walks the full story."},
     ],
     "verify": [
-        {"cmd": "show route 10.0.0.2 table inet.3 extensive",
+        {"cmd": "show route 10.20.255.2 table inet.3 extensive",
          "expect": "inet.3: 7 destinations, 7 routes (7 active, 0 holddown, 0 hidden)\n"
-                   "10.0.0.2/32 (1 entry, 1 announced)\n"
+                   "10.20.255.2/32 (1 entry, 1 announced)\n"
                    "        *L-ISIS Preference: 14\n"
-                   "                Next hop: 10.1.1.2 via ge-0/0/1.0, selected\n"
+                   "                Next hop: 10.20.0.2 via ge-0/0/1.0, selected\n"
                    "                Label operation: Push 16002\n"
                    "                Label TTL action: prop-ttl",
          "read": "PE2's loopback now resolves to an SR tunnel in inet.3 with 'Push "
                  "16002'. This is the transport L3VPN next-hops resolve over; if "
-                 "inet.3 has no entry for 10.0.0.2, SR has not built the tunnel and "
+                 "inet.3 has no entry for 10.20.255.2, SR has not built the tunnel and "
                  "no service will forward."},
         {"cmd": "show route table mpls.0 | match 16002",
          "expect": "16002              *[L-ISIS/14] 00:12:14, metric 30\n"
-                   "                    >  to 10.1.1.6 via ge-0/0/1.0, Swap 16002",
+                   "                    >  to 10.20.0.6 via ge-0/0/1.0, Swap 16002",
          "read": "Label 16002 (PE2's node-SID) resolves to a single next-hop with a "
                  "Swap toward PE2. A single authoritative next-hop is correct. If "
                  "16002 shows two next-hops at different routers, two nodes are "
                  "advertising the same index, which is a SID clash."},
-        {"cmd": "traceroute mpls segment-routing isis 10.0.0.2",
+        {"cmd": "traceroute mpls segment-routing isis 10.20.255.2",
          "expect": "Probe options: ttl 30, retries 3\n"
                    "  ttl  Label  Protocol   Address          Previous Hop     Probe Status\n"
-                   "    1   16002  SR-ISIS    10.1.1.2         (null)           Success\n"
-                   "    2   16002  SR-ISIS    10.1.1.6         10.1.1.2         Success\n"
-                   "    3      0   SR-ISIS    10.1.1.10        10.1.1.6         Success\n"
+                   "    1   16002  SR-ISIS    10.20.0.2         (null)           Success\n"
+                   "    2   16002  SR-ISIS    10.20.0.6         10.20.0.2         Success\n"
+                   "    3      0   SR-ISIS    10.20.0.10        10.20.0.6         Success\n"
                    "  FEC-Stack-Sent: SR-ISIS\n"
                    "  segment-routing traceroute done",
          "read": "The labeled traceroute walks the label-switched path hop by hop, "
@@ -389,12 +394,12 @@ M2 = {
         "scenario":
             "SR is enabled across the lab and IS-IS is fully up, but the transport "
             "tunnel to PE2 is misbehaving. From PE1, 'traceroute mpls "
-            "segment-routing isis 10.0.0.2' either times out or returns an "
+            "segment-routing isis 10.20.255.2' either times out or returns an "
             "inconsistent hop count that never reaches PE2, even though a plain IP "
-            "'ping 10.0.0.2' still succeeds. On a transit router, 'show route table "
+            "'ping 10.20.255.2' still succeeds. On a transit router, 'show route table "
             "mpls.0 | match 16002' resolves PE2's node-SID label toward a next-hop "
             "that is clearly not on the path to PE2, and inet.3 on PE1 shows the "
-            "10.0.0.2 tunnel resolving to the wrong router.",
+            "10.20.255.2 tunnel resolving to the wrong router.",
         "task":
             "The IP underlay is healthy, so the fault lives in the SR transport "
             "layer, not IS-IS. Diagnose why label 16002 is being switched toward the "
@@ -452,8 +457,8 @@ M3 = {
         "Two BGP communities do the heavy lifting, and new engineers constantly "
         "confuse them. The route distinguisher (RD) is an 8-byte value prepended to "
         "each customer prefix to make it globally unique in the bgp.l3vpn.0 table. "
-        "CUST_A on PE1 uses RD 10.0.0.1:100, so CE1's 192.168.50.1/32 is advertised "
-        "as 10.0.0.1:100:192.168.50.1/32. The RD does no filtering at all; it only "
+        "CUST_A on PE1 uses RD 10.20.255.1:100, so CE1's 192.168.50.1/32 is advertised "
+        "as 10.20.255.1:100:192.168.50.1/32. The RD does no filtering at all; it only "
         "guarantees that CUST_A's 192.168.50.0/24 and CUST_B's identical "
         "192.168.50.0/24 are two distinct NLRI and never overwrite each other in "
         "BGP. The route target (RT) is a separate extended community that acts as "
@@ -478,14 +483,14 @@ M3 = {
         {"step": "PE1: build the iBGP overlay to both route reflectors with the "
                  "inet-vpn family.",
          "cmds": ["set protocols bgp group OVERLAY type internal",
-                  "set protocols bgp group OVERLAY local-address 10.0.0.1",
+                  "set protocols bgp group OVERLAY local-address 10.20.255.1",
                   "set protocols bgp group OVERLAY family inet-vpn unicast",
                   "set protocols bgp group OVERLAY family evpn signaling",
-                  "set protocols bgp group OVERLAY neighbor 10.0.0.11",
-                  "set protocols bgp group OVERLAY neighbor 10.0.0.12"],
+                  "set protocols bgp group OVERLAY neighbor 10.20.255.11",
+                  "set protocols bgp group OVERLAY neighbor 10.20.255.12"],
          "note": "type internal makes this iBGP inside AS 64512. local-address ties "
                  "the session to the loopback so it follows the SR transport. The "
-                 "two neighbors are C1 (10.0.0.11) and C2 (10.0.0.12), the route "
+                 "two neighbors are C1 (10.20.255.11) and C2 (10.20.255.12), the route "
                  "reflectors. family inet-vpn unicast is what upgrades this from a "
                  "plain iBGP session to an L3VPN session."},
         {"step": "PE1: create the CUST_A VRF, its RD, RT, table label, subinterface, "
@@ -496,14 +501,14 @@ M3 = {
                   "set interfaces ge-0/0/3 unit 100 family inet address 172.16.100.1/30",
                   "set routing-instances CUST_A instance-type vrf",
                   "set routing-instances CUST_A interface ge-0/0/3.100",
-                  "set routing-instances CUST_A route-distinguisher 10.0.0.1:100",
+                  "set routing-instances CUST_A route-distinguisher 10.20.255.1:100",
                   "set routing-instances CUST_A vrf-target target:64512:100",
                   "set routing-instances CUST_A vrf-table-label",
                   "set routing-instances CUST_A protocols bgp group CE type external",
                   "set routing-instances CUST_A protocols bgp group CE peer-as 65001",
                   "set routing-instances CUST_A protocols bgp group CE neighbor 172.16.100.2"],
          "note": "instance-type vrf creates the CUST_A.inet.0 table. The RD "
-                 "10.0.0.1:100 makes CUST_A prefixes globally unique; the RT "
+                 "10.20.255.1:100 makes CUST_A prefixes globally unique; the RT "
                  "target:64512:100 is the import/export filter. peer-as 65001 is the "
                  "customer AS; the PE-CE link is eBGP over VLAN 100."},
         {"step": "PE1: create the CUST_B VRF the same way with its own RD and RT on "
@@ -512,32 +517,32 @@ M3 = {
                   "set interfaces ge-0/0/3 unit 200 family inet address 172.16.101.1/30",
                   "set routing-instances CUST_B instance-type vrf",
                   "set routing-instances CUST_B interface ge-0/0/3.200",
-                  "set routing-instances CUST_B route-distinguisher 10.0.0.1:200",
+                  "set routing-instances CUST_B route-distinguisher 10.20.255.1:200",
                   "set routing-instances CUST_B vrf-target target:64512:200",
                   "set routing-instances CUST_B vrf-table-label",
                   "set routing-instances CUST_B protocols bgp group CE type external",
                   "set routing-instances CUST_B protocols bgp group CE peer-as 65001",
                   "set routing-instances CUST_B protocols bgp group CE neighbor 172.16.101.2",
                   "commit"],
-         "note": "CUST_B is identical in structure but RD 10.0.0.1:200 and RT "
+         "note": "CUST_B is identical in structure but RD 10.20.255.1:200 and RT "
                  "target:64512:200 keep it a separate VPN. This is the deliberate "
                  "second customer that reuses 192.168.50.0/24; the different RT is "
                  "the only thing keeping it isolated from CUST_A."},
         {"step": "C1 (core route reflector): enable the overlay with a cluster ID "
                  "and peer the PEs and the other reflector.",
          "cmds": ["set protocols bgp group OVERLAY type internal",
-                  "set protocols bgp group OVERLAY local-address 10.0.0.11",
+                  "set protocols bgp group OVERLAY local-address 10.20.255.11",
                   "set protocols bgp group OVERLAY family inet-vpn unicast",
                   "set protocols bgp group OVERLAY family evpn signaling",
                   "set protocols bgp group OVERLAY cluster 0.0.0.1",
-                  "set protocols bgp group OVERLAY neighbor 10.0.0.1",
-                  "set protocols bgp group OVERLAY neighbor 10.0.0.2",
-                  "set protocols bgp group OVERLAY neighbor 10.0.0.12",
+                  "set protocols bgp group OVERLAY neighbor 10.20.255.1",
+                  "set protocols bgp group OVERLAY neighbor 10.20.255.2",
+                  "set protocols bgp group OVERLAY neighbor 10.20.255.12",
                   "commit"],
          "note": "cluster 0.0.0.1 makes C1 a route reflector; the PE neighbors "
-                 "(10.0.0.1 PE1, 10.0.0.2 PE2) become clients and their VPN routes "
-                 "are reflected to each other. 10.0.0.12 is C2, the redundant "
-                 "reflector. C2 mirrors this config with local-address 10.0.0.12. "
+                 "(10.20.255.1 PE1, 10.20.255.2 PE2) become clients and their VPN routes "
+                 "are reflected to each other. 10.20.255.12 is C2, the redundant "
+                 "reflector. C2 mirrors this config with local-address 10.20.255.12. "
                  "The reflectors carry no VRF; they only relay VPN NLRI."},
         {"step": "CE1 (customer edge): run eBGP up to PE1 and advertise the "
                  "customer prefixes from a virtual-router instance.",
@@ -575,16 +580,16 @@ M3 = {
                    "Table          Tot Paths  Act Paths Suppressed  History Damp State Pending\n"
                    "bgp.l3vpn.0            6          6          0        0          0       0\n"
                    "Peer             AS      InPkt  OutPkt  Flaps Last Up/Dwn State|#Active/Received/Accepted\n"
-                   "10.0.0.11     64512        412     410      0    3:01:22 Establ\n"
+                   "10.20.255.11     64512        412     410      0    3:01:22 Establ\n"
                    "  bgp.l3vpn.0: 3/3/3/0\n"
-                   "10.0.0.12     64512        408     407      0    3:01:19 Establ\n"
+                   "10.20.255.12     64512        408     407      0    3:01:19 Establ\n"
                    "  bgp.l3vpn.0: 3/3/3/0\n"
                    "172.16.100.2  65001        210     212      0    2:58:40 Establ\n"
                    "  CUST_A.inet.0: 2/2/2/0\n"
                    "172.16.101.2  65001        205     207      0    2:58:33 Establ\n"
                    "  CUST_B.inet.0: 1/1/1/0",
-         "read": "The two iBGP sessions to the reflectors C1 (10.0.0.11) and C2 "
-                 "(10.0.0.12) are Establ and feed bgp.l3vpn.0. The two eBGP sessions "
+         "read": "The two iBGP sessions to the reflectors C1 (10.20.255.11) and C2 "
+                 "(10.20.255.12) are Establ and feed bgp.l3vpn.0. The two eBGP sessions "
                  "to CE1 (172.16.100.2 in CUST_A) and CE2's side (172.16.101.2 in "
                  "CUST_B) are Establ inside their VRFs. If a reflector session is "
                  "not Establ, no remote VPN routes arrive and every VRF looks empty."},
@@ -594,26 +599,26 @@ M3 = {
                    "10.50.1.0/24    *[BGP/170] 02:58:40, localpref 100\n"
                    "                   AS path: 65001 I, from 172.16.100.2\n"
                    "                 >  to 172.16.100.2 via ge-0/0/3.100\n"
-                   "10.50.2.0/24    *[BGP/170] 02:55:10, localpref 100, from 10.0.0.2\n"
+                   "10.50.2.0/24    *[BGP/170] 02:55:10, localpref 100, from 10.20.255.2\n"
                    "                   AS path: 65001 I\n"
-                   "                 >  to 10.1.1.2 via ge-0/0/1.0, Push 16002, Push 299872(top)\n"
+                   "                 >  to 10.20.0.2 via ge-0/0/1.0, Push 16002, Push 299872(top)\n"
                    "172.16.100.0/30 *[Direct/0] 03:02:00\n"
                    "                 >  via ge-0/0/3.100\n"
                    "192.168.50.1/32 *[BGP/170] 02:58:40, localpref 100\n"
                    "                   AS path: 65001 I, from 172.16.100.2",
          "read": "10.50.1.0/24 (Client1's subnet) is learned locally from CE1 over "
                  "eBGP. 10.50.2.0/24 (Client2's subnet) is the remote VPN route: its "
-                 "next-hop is PE2 (10.0.0.2) and it carries a two-label stack, the "
+                 "next-hop is PE2 (10.20.255.2) and it carries a two-label stack, the "
                  "VPN label 299872 over the SR transport label Push 16002. That "
                  "outer label is the M2 tunnel doing its job under the overlay."},
-        {"cmd": "show route receive-protocol bgp 10.0.0.11 table bgp.l3vpn.0",
+        {"cmd": "show route receive-protocol bgp 10.20.255.11 table bgp.l3vpn.0",
          "expect": "bgp.l3vpn.0: 6 destinations, 6 routes (6 active, 0 holddown, 0 hidden)\n"
                    "  Prefix                       Nexthop     Lclpref  AS path\n"
-                   "  10.0.0.2:100:10.50.2.0/24     10.0.0.2    100      65001 I\n"
-                   "  10.0.0.2:100:192.168.50.1/32  10.0.0.2    100      65001 I\n"
-                   "  10.0.0.2:200:192.168.50.1/32  10.0.0.2    100      65001 I",
+                   "  10.20.255.2:100:10.50.2.0/24     10.20.255.2    100      65001 I\n"
+                   "  10.20.255.2:100:192.168.50.1/32  10.20.255.2    100      65001 I\n"
+                   "  10.20.255.2:200:192.168.50.1/32  10.20.255.2    100      65001 I",
          "read": "These are PE2's VPN routes reflected by C1. Note how the RD "
-                 "prefix (10.0.0.2:100 for CUST_A, 10.0.0.2:200 for CUST_B) makes "
+                 "prefix (10.20.255.2:100 for CUST_A, 10.20.255.2:200 for CUST_B) makes "
                  "the two identical 192.168.50.1/32 prefixes distinct NLRI, so they "
                  "coexist in one table. Which VRF each lands in is decided later by "
                  "the RT community, not by the RD."},
@@ -706,7 +711,7 @@ M4 = {
         "metric-type delay-metric, so it minimizes cumulative measured one-way link "
         "delay instead of IGP cost.",
         "The two planes only differ when the metrics differ. Every core link is IGP "
-        "metric 10, so algo-128 picks plane A (PE1-P1-C1-P3-PE2) as the lowest-cost "
+        "metric 10, so algo-128 picks plane A (PE1-C1-PE2) as the lowest-cost "
         "path to PE2. Algo-129 instead sums the delay values that IS-IS distributes "
         "as APP-LRTT sub-TLVs, which come from the delay-measurement probes each "
         "transit interface runs. When every link reports a low, similar delay the two "
@@ -750,7 +755,7 @@ M4 = {
                  "advertise an algorithm is pruned from that algorithm's SPF tree."},
         {"step": "Advertise a distinct prefix-SID per algorithm for this loopback.",
          "cmds": ["set policy-options policy-statement EXPORT-FLEX-ALGO-SID term sid from interface lo0.0",
-                  "set policy-options policy-statement EXPORT-FLEX-ALGO-SID term sid from route-filter 10.0.0.1/32 exact",
+                  "set policy-options policy-statement EXPORT-FLEX-ALGO-SID term sid from route-filter 10.20.255.1/32 exact",
                   "set policy-options policy-statement EXPORT-FLEX-ALGO-SID term sid then prefix-segment algorithm 128 index 1001",
                   "set policy-options policy-statement EXPORT-FLEX-ALGO-SID term sid then prefix-segment algorithm 128 node-segment",
                   "set policy-options policy-statement EXPORT-FLEX-ALGO-SID term sid then prefix-segment algorithm 129 index 2001",
@@ -806,15 +811,15 @@ M4 = {
     ],
     "verify": [
         {"cmd": "show route table inetcolor.0",
-         "expect": "10.0.0.2-128<c>/64\n"
+         "expect": "10.20.255.2-128<c>/64\n"
                    "                   *[L-ISIS/14] 00:15:32, metric 40\n"
-                   "                    >  to 10.1.1.2 via ge-0/0/1.0, Push 16002\n"
-                   "10.0.0.2-129<c>/64\n"
+                   "                    >  to 10.20.0.2 via ge-0/0/1.0, Push 16002\n"
+                   "10.20.255.2-129<c>/64\n"
                    "                   *[L-ISIS/14] 00:15:32, metric 300\n"
-                   "                    >  to 10.1.1.2 via ge-0/0/1.0, Push 16002",
+                   "                    >  to 10.20.0.2 via ge-0/0/1.0, Push 16002",
          "read": "Two colored transport routes to PE2 exist: the -128 entry (IGP "
                  "metric 40) and the -129 entry (summed delay). Before latency "
-                 "injection both leave via the plane-A next-hop 10.1.1.2 (ge-0/0/1 "
+                 "injection both leave via the plane-A next-hop 10.20.0.2 (ge-0/0/1 "
                  "toward P1). A missing -129 entry means algo-129 has no delay data on "
                  "some link and has not converged."},
         {"cmd": "show isis database extensive | match delay",
@@ -836,11 +841,11 @@ M4 = {
                  "proves the VRF is steered onto the delay plane. If Communities shows "
                  "no color, SET-COLOR-129 did not run and CUST_B has fallen back to "
                  "algo-128."},
-        {"cmd": "show route table inetcolor.0 10.0.0.2-129<c>/64   (before, then after GNS3 latency)",
+        {"cmd": "show route table inetcolor.0 10.20.255.2-129<c>/64   (before, then after GNS3 latency)",
          "expect": "before:  *[L-ISIS/14] metric 300\n"
-                   "                >  to 10.1.1.2 via ge-0/0/1.0, Push 16002   (plane A, toward P1)\n"
+                   "                >  to 10.20.0.2 via ge-0/0/1.0, Push 16002   (plane A, toward P1)\n"
                    "after:   *[L-ISIS/14] metric 80300\n"
-                   "                >  to 10.1.1.18 via ge-0/0/2.0, Push 16002  (plane B, toward P2)",
+                   "                >  to 10.20.0.18 via ge-0/0/2.0, Push 16002  (plane B, toward P2)",
          "read": "Once the ~80 ms GNS3 filter is applied to the PE1-P1 link, algo-129's "
                  "summed delay to PE2 jumps and the -129 next-hop flips from ge-0/0/1 "
                  "(plane A, P1) to ge-0/0/2 (plane B, P2). Re-run 'show route table "
@@ -854,7 +859,7 @@ M4 = {
             "CUST_A is healthy and its route in inetcolor.0 resolves normally over the "
             "algo-128 (color 128) tunnel to PE2. CUST_B, which should ride the "
             "delay-optimized algo-129 plane, is misbehaving: on PE1 the "
-            "10.0.0.2-129 transport route in inetcolor.0 is either missing or has "
+            "10.20.255.2-129 transport route in inetcolor.0 is either missing or has "
             "taken a strange detour, and 'show route table CUST_B.inet.0 detail' "
             "shows CUST_B no longer following the expected delay path toward PE2. "
             "Every IS-IS adjacency is Up, every BGP session is Established, and "
@@ -1011,7 +1016,13 @@ M5 = {
          "note": "--tos takes the full 8-bit ToS byte: 184 decimal is DSCP 46 in "
                  "the high six bits, which the DSCP-INGRESS classifier maps to "
                  "premium-priority. The plain run defaults to DSCP 0, which maps "
-                 "to best-effort. Run each for long enough to watch counters move."},
+                 "to best-effort. Run each for long enough to watch counters move. "
+                 "The Rocky endpoint images do not ship iperf3. Install it once per "
+                 "rebuild with 'sudo dnf install -y iperf3'. If dnf hangs rather "
+                 "than failing, see the IPv6 Router Advertisement note in the lab "
+                 "spec: the routers advertise themselves as IPv6 default gateways on "
+                 "the management segment, and dnf has no Happy Eyeballs fallback to "
+                 "IPv4."},
         {"step": "In GNS3, capture a core link and read the MPLS EXP bits in "
                  "Wireshark while the EF flow runs.",
          "cmds": ["## Right-click the P1 to PE1 link (plane A) in GNS3 and choose 'Start capture'.",
@@ -1043,15 +1054,21 @@ M5 = {
                  "transit router would queue the premium flow as best-effort no "
                  "matter what the PE classified."},
         {"cmd": "show interfaces queue ge-0/0/1",
-         "expect": "Queue: 0, Forwarding classes: best-effort\n"
-                   "  Transmitted: ... packets  (best-effort flow counts here)\n"
-                   "Queue: 5, Forwarding classes: premium-priority\n"
-                   "  Transmitted: ... packets  (EF flow counts here)",
-         "read": "While the EF iperf3 runs, the Transmitted counter on queue 5 "
-                 "(premium-priority) climbs; the best-effort run moves queue 0. "
-                 "This confirms classification put each flow in the right queue. "
-                 "Remember the lite-mode PFE reports placement faithfully but does "
-                 "not enforce real scheduling or drops."},
+         "expect": "Physical interface: ge-0/0/1, Enabled, Physical link is Up\n"
+                   "  Interface index: 151, SNMP ifIndex: 529",
+         "read": "This is the complete, verbatim output on this vJunos lite-mode "
+                 "chassis: no per-queue breakdown, no 'Queue: 0' or 'Queue: 5' "
+                 "lines, and no Transmitted or Tail-dropped counters, confirmed "
+                 "empty even with '| display xml', which shows no <queue> elements "
+                 "at all. This is a structural property of the platform's show "
+                 "interfaces queue RPC, not a symptom of idle traffic, and it does "
+                 "not change once traffic is flowing. Because this platform does not "
+                 "expose per-queue counters, you cannot confirm queue placement by "
+                 "watching a counter climb. Infer it instead the way the checks "
+                 "above and below this one do: from the classifier and rewrite-rule "
+                 "configuration, which forwarding class each DSCP and EXP value maps "
+                 "to, plus a packet capture, which EXP value actually left the wire. "
+                 "Those two together prove placement; this command cannot."},
         {"cmd": "GNS3 capture of the P1 to PE1 link opened in Wireshark",
          "expect": "MultiProtocol Label Switching Header\n"
                    "    Label: 16002 (PE2 node-SID)\n"
@@ -1122,7 +1139,7 @@ M6 = {
     "prereq":
         "M5 complete and the full SR-MPLS stack running: IS-IS Level-2 underlay, "
         "SR-MPLS transport with node-SIDs, the L3VPN overlay, Flex-Algo, and "
-        "class-of-service all committed on every node so that 10.0.0.2 already "
+        "class-of-service all committed on every node so that 10.20.255.2 already "
         "resolves through an SR label-switched path.",
     "primer": [
         "TI-LFA is IS-IS fast reroute for a Segment Routing core. For every "
@@ -1171,8 +1188,8 @@ M6 = {
                  "SR label stack. Do not negate or deactivate them. If they are "
                  "missing, add them and 'commit'."},
         {"step": "Verify a backup next-hop for PE2 is already pre-computed before any failure.",
-         "cmds": ["lab@PE1> show isis route 10.0.0.2 extensive    ## look for TILFA computed MPLS paths Valid:1",
-                  "lab@PE1> show route 10.0.0.2 detail            ## look for a Backup next-hop under the primary"],
+         "cmds": ["lab@PE1> show isis route 10.20.255.2 extensive    ## look for TILFA computed MPLS paths Valid:1",
+                  "lab@PE1> show route 10.20.255.2 detail            ## look for a Backup next-hop under the primary"],
          "note": "Protection must be armed with the network healthy. Both plane-A "
                  "(ge-0/0/1 toward P1) and plane-B (ge-0/0/2 toward P2) primaries are "
                  "present, and the TI-LFA backup is pre-installed. If there is no "
@@ -1181,25 +1198,25 @@ M6 = {
          "cmds": ["lab@PE1> configure",
                   "lab@PE1# set interfaces ge-0/0/1 disable",
                   "lab@PE1# commit and-quit    ## or, in GNS3, right-click the PE1-P1 link and Stop it",
-                  "lab@PE1> show route 10.0.0.2 detail    ## traffic now on the former backup path via ge-0/0/2"],
+                  "lab@PE1> show route 10.20.255.2 detail    ## traffic now on the former backup path via ge-0/0/2"],
          "note": "Disabling ge-0/0/1 (or stopping the PE1-P1 link in GNS3) fails the "
                  "plane-A primary. Because the backup was pre-programmed, forwarding "
                  "moves onto plane B in sub-second time rather than after a full IGP "
-                 "re-convergence. Watch a running 'ping 10.0.0.2 source 10.0.0.1 "
+                 "re-convergence. Watch a running 'ping 10.20.255.2 source 10.20.255.1 "
                  "rapid' lose at most a packet or two."},
         {"step": "Restore the primary link and confirm protection re-arms.",
          "cmds": ["lab@PE1> configure",
                   "lab@PE1# delete interfaces ge-0/0/1 disable",
                   "lab@PE1# commit and-quit    ## or Start the PE1-P1 link in GNS3",
-                  "lab@PE1> show route 10.0.0.2 detail    ## primary via ge-0/0/1 with the Backup next-hop restored"],
+                  "lab@PE1> show route 10.20.255.2 detail    ## primary via ge-0/0/1 with the Backup next-hop restored"],
          "note": "Always return the lab to full protection. Each node's stage6-frr "
                  "config carries the same three group lines, so a fabric-wide reset "
                  "is 'python push_lab_configs.py stage6-frr'. PE1 and P1 are shown as "
                  "representatives; the mandate is identical on every SR node."},
     ],
     "verify": [
-        {"cmd": "show isis route 10.0.0.2 extensive",
-         "expect": "10.0.0.2/32  L2  metric 40\n"
+        {"cmd": "show isis route 10.20.255.2 extensive",
+         "expect": "10.20.255.2/32  L2  metric 40\n"
                    "  ge-0/0/1.0  IPV4 P1\n"
                    "  ge-0/0/2.0  IPV4 P2\n"
                    "  TILFA computed MPLS paths, Count:1, Valid:1\n"
@@ -1208,30 +1225,30 @@ M6 = {
                  "has pre-computed a usable post-convergence backup toward PE2's "
                  "node-SID 16002. 'Valid:0' means the use-post-convergence-lfa mandate "
                  "is missing or deactivated and no backup exists."},
-        {"cmd": "show route 10.0.0.2 detail",
-         "expect": "10.0.0.2/32 (1 entry, 1 announced)\n"
+        {"cmd": "show route 10.20.255.2 detail",
+         "expect": "10.20.255.2/32 (1 entry, 1 announced)\n"
                    "        *IS-IS Preference: 18\n"
-                   "         Next hop: 10.1.1.2 via ge-0/0/1.0, selected   ## primary, plane A via P1\n"
-                   "         Next hop: 10.1.1.18 via ge-0/0/2.0            ## Backup next-hop, plane B via P2\n"
+                   "         Next hop: 10.20.0.2 via ge-0/0/1.0, selected   ## primary, plane A via P1\n"
+                   "         Next hop: 10.20.0.18 via ge-0/0/2.0            ## Backup next-hop, plane B via P2\n"
                    "           Label operation: Push 16002\n"
                    "         Backup next hop found by TI-LFA",
          "read": "The selected primary points out ge-0/0/1 toward P1 on plane A, and "
                  "a second Backup next-hop out ge-0/0/2 toward P2 on plane B is listed "
                  "beneath it. A primary with no Backup next-hop means protection is "
                  "not armed."},
-        {"cmd": "show route forwarding-table destination 10.0.0.2",
+        {"cmd": "show route forwarding-table destination 10.20.255.2",
          "expect": "Destination        Type RtRef Next hop           Type Index\n"
-                   "10.0.0.2/32        user     0                    ulst\n"
-                   "                                  10.1.1.2  ge-0/0/1.0  ucst   (primary)\n"
-                   "                                  10.1.1.18 ge-0/0/2.0  ucst   (backup)",
+                   "10.20.255.2/32        user     0                    ulst\n"
+                   "                                  10.20.0.2  ge-0/0/1.0  ucst   (primary)\n"
+                   "                                  10.20.0.18 ge-0/0/2.0  ucst   (backup)",
          "read": "The backup is programmed into the FIB itself, not just the control "
                  "plane. Seeing both next-hops in the forwarding-table is what makes "
                  "the failover a hardware swap and therefore sub-second. If only the "
                  "primary appears here, the line card has nothing to fail over to."},
-        {"cmd": "show route 10.0.0.2 detail    ## run again after 'set interfaces ge-0/0/1 disable ; commit'",
-         "expect": "10.0.0.2/32 (1 entry, 1 announced)\n"
+        {"cmd": "show route 10.20.255.2 detail    ## run again after 'set interfaces ge-0/0/1 disable ; commit'",
+         "expect": "10.20.255.2/32 (1 entry, 1 announced)\n"
                    "        *IS-IS Preference: 18\n"
-                   "         Next hop: 10.1.1.18 via ge-0/0/2.0, selected   ## now primary, plane B via P2\n"
+                   "         Next hop: 10.20.0.18 via ge-0/0/2.0, selected   ## now primary, plane B via P2\n"
                    "           Label operation: Push 16002",
          "read": "After the plane-A link is disabled, the former backup out ge-0/0/2 "
                  "is now the selected primary and traffic to PE2 continues on plane B. "
@@ -1242,7 +1259,7 @@ M6 = {
     "screenshot": "M6 verification: TI-LFA precomputed backup next-hop for PE2",
     "breakfix": {
         "scenario":
-            "The lab looks healthy and 10.0.0.2 is reachable, but during a "
+            "The lab looks healthy and 10.20.255.2 is reachable, but during a "
             "maintenance test the team disabled PE1's plane-A link and watched a "
             "steady ping to PE2 drop packets for several seconds before recovering, "
             "instead of the sub-second blip the design promises. Every adjacency is "
@@ -1253,9 +1270,9 @@ M6 = {
             "for PE2's loopback across the fabric. Confirm your fix by proving a "
             "backup next-hop is pre-computed again before the next failure test.",
         "hint":
-            "With the network healthy, check 'show isis route 10.0.0.2 extensive' for "
+            "With the network healthy, check 'show isis route 10.20.255.2 extensive' for "
             "'TILFA computed MPLS paths' and its Valid count, and 'show route "
-            "10.0.0.2 detail' for a Backup next-hop. A Valid:0 result and a missing "
+            "10.20.255.2 detail' for a Backup next-hop. A Valid:0 result and a missing "
             "backup, with the underlying stanza still visible in the config, is the "
             "signature of a group-level mandate that has been negated rather than "
             "removed. This is a mandate-negation fault; the correct fix restores the "
@@ -1280,7 +1297,267 @@ M6 = {
 M7 = {
     "code": "008",
     "id": "M7",
-    "title": "M7 Capstone Break/Fix and Brief",
+    "title": "M7 End-to-End QoS Marking",
+    "duration": "60 min",
+    "prereq":
+        "M5 complete, so the class-of-service framework and the EXP rewrite are "
+        "already understood, and the full SR-MPLS stack running. Both Linux "
+        "endpoints reachable with the qos-e2e application tree deployed to "
+        "/home/rocky/qos-e2e (see qos-e2e/deploy_clients.py).",
+    "objective":
+        "Follow one packet from a setsockopt() call in application source code, "
+        "through the IPv4 TOS byte, across the customer LAN, into a provider edge "
+        "that decides whether to believe the marking, down into three bits of MPLS "
+        "EXP across the core, and back out the far side into a DSCP the receiving "
+        "application reads off its own socket. By the end you can explain why "
+        "sixty-four DSCP values cannot survive a network that carries eight, and "
+        "why an application does not get to decide its own priority.",
+    "primer": [
+        "An application marks itself with one line: setsockopt(IPPROTO_IP, IP_TOS, "
+        "dscp << 2). That value lands in the IPv4 header's TOS byte, nowhere else. "
+        "It does not touch the transport layer; ports and protocol are separate "
+        "fields the network can match on independently. The shift by two is because "
+        "RFC 2474 redefined the byte so DSCP owns the top six bits and ECN owns the "
+        "bottom two. DSCP is not married to TOS, it is part of it.",
+        "Six bits hold sixty-four values. The MPLS EXP field, also called Traffic "
+        "Class, holds three bits and therefore eight. When the ingress PE imposes a "
+        "label stack it must collapse whatever DSCP arrived into one of a handful of "
+        "forwarding classes, and only that class crosses the core. Every transit "
+        "router in this lab reads the label and never looks at the IP header at all. "
+        "On the far side the egress PE rebuilds a DSCP from the forwarding class, "
+        "which means it cannot recover which of several DSCPs originally mapped into "
+        "that class. The round trip is lossy, and this module makes you watch it "
+        "happen.",
+        "There are two kinds of classifier and the difference is the whole trust "
+        "conversation. A behaviour-aggregate (BA) classifier maps the DSCP that "
+        "arrives to a forwarding class: it believes the customer completely. A "
+        "multifield (MF) classifier is a firewall filter that assigns a forwarding "
+        "class based on the flow's identity, five-tuple and all, regardless of what "
+        "the packet claimed. Applied in the input direction, its forwarding-class "
+        "action overrides the BA result. That override is where 'my application "
+        "marks itself important' stops being true.",
+        "One more thing worth knowing before you touch a router: this lab's PFE is "
+        "software-simulated (vJunos in lite-mode), and it turns out to genuinely "
+        "differ from hardware in two ways that matter for this module. It does not "
+        "expose per-queue counters, so you cannot watch a Transmitted count climb to "
+        "confirm placement, and its egress shaper does not actually enforce a rate "
+        "under load even though the control plane accepts and recomputes against it. "
+        "Both limitations are covered where they come up below, with the true "
+        "commands to use instead.",
+    ],
+    "build": [
+        {"step": "Read the marking line in the application source. Every sender uses "
+                 "the same helper, so this one line is the entire claim an "
+                 "application can make about its own importance.",
+         "cmds": ["client1$ grep -A8 'def set_dscp' ~/qos-e2e/isr_apps/common.py",
+                  "client1$ grep -n 'set_dscp' ~/qos-e2e/isr_apps/*.py"],
+         "note": "Four different applications, one identical line. Show this to a "
+                 "software audience before anything else: it is the only part of the "
+                 "chain they control, and it is smaller than they expect."},
+        {"step": "Prove the TOS byte actually reaches the wire.",
+         "cmds": ["client1$ sudo python3 ~/qos-e2e/isr_apps/wire_peek.py --iface eth0 --count 5 --port 9100 &",
+                  "client1$ python3 ~/qos-e2e/isr_apps/c2_messaging.py --duration 5"],
+         "note": "wire_peek prints 'CS6 (48)' where tcpdump prints 'tos 0xc0'. Same "
+                 "information, readable by an audience that does not think in hex. "
+                 "This is the last point in the chain where the application's wish "
+                 "and reality are guaranteed to agree."},
+        {"step": "Push stage 7 and read the two classifiers side by side.",
+         "cmds": ["python push_lab_configs.py stage7-qos-e2e",
+                  "show class-of-service classifier name DSCP-TRUSTED",
+                  "show configuration firewall family inet filter UNTRUSTED-REMARK",
+                  "show class-of-service interface ge-0/0/3"],
+         "note": "DSCP-TRUSTED maps six customer DSCPs onto four forwarding classes. "
+                 "UNTRUSTED-REMARK matches TCP port 9300 and forces best-effort with "
+                 "'then dscp cs1', overriding whatever the BA classifier decided. "
+                 "Both are bound to ge-0/0/3.100. One trusts, one does not."},
+        {"step": "CRITICAL: restart routing on every node in the topology, not only "
+                 "the ones this stage touched.",
+         "cmds": ["## On EVERY router: PE1, PE2, P1, P2, P3, P4, C1, C2",
+                  "restart routing"],
+         "note": "This is the single most expensive lesson this lab build produced. "
+                 "After any stage push that changes segment-routing configuration, "
+                 "the SRGB does not take effect until routing is restarted, and it "
+                 "must be restarted on every node, not just the ones you edited. "
+                 "Skip one node and the lab looks completely healthy: IS-IS "
+                 "adjacencies Up, BGP established, no alarms, while forwarding is "
+                 "silently dead and every VPN route sits with an unresolvable next "
+                 "hop. This cost this build several hours to diagnose. If the next "
+                 "step does not work, check this before you doubt the classifier "
+                 "configuration."},
+        {"step": "Run the console on Client2, then all four applications on Client1 "
+                 "with the imagery push in greedy mode.",
+         "cmds": ["client2$ python3 ~/qos-e2e/console/render_tui.py",
+                  "client1$ cd ~/qos-e2e/isr_apps && python3 c2_messaging.py --duration 45 & "
+                  "python3 track_feed.py --duration 45 & python3 fmv_stream.py --duration 45 & "
+                  "python3 imagery_push.py --greedy --duration 45 & wait"],
+         "note": "The console reads each arriving datagram's TOS byte back off its "
+                 "own socket with IP_RECVTOS and compares it against what the sender "
+                 "recorded in the payload header. Watch the VERDICT column. Two rows "
+                 "are the point of the whole module. That IP_RECVTOS path only "
+                 "applies to the three UDP rows; imagery_push is TCP, and this "
+                 "lab's kernel never delivers IP_RECVTOS ancillary data for a "
+                 "stream socket, so its arrived DSCP is read instead with "
+                 "getsockopt(IPPROTO_IP, IP_PKTOPTIONS, ...), the console's "
+                 "TCP-specific fallback."},
+        {"step": "Capture a core link and read the EXP bits for all four streams.",
+         "cmds": ["## Right-click the PE1 to P1 link in GNS3, choose 'Start capture'.",
+                  "## Re-run the senders, then open the capture in Wireshark.",
+                  "## Expand MultiProtocol Label Switching Header for each stream."],
+         "note": "The FMV stream and the track feed are indistinguishable here. They "
+                 "chose different DSCPs and both carry EXP 100, because three bits "
+                 "cannot hold sixty-four values. This is the collapse on the wire, "
+                 "and it is the check the router CLI alone cannot give you. Do not "
+                 "expect 'monitor traffic interface ge-0/0/1' on the router itself to "
+                 "show any of this: monitor traffic is a routing-engine-side capture "
+                 "and only ever sees control-plane packets addressed to the RE, never "
+                 "transit customer traffic. Four attempts across both core uplinks "
+                 "with tens of thousands of customer packets in flight captured none "
+                 "of them. The GNS3 GUI capture above is the only way to see EXP for "
+                 "customer data traffic in this lab, so do not lose an hour "
+                 "rediscovering that on your own."},
+        {"step": "Toggle the egress rewrite on PE2 to move between the RFC 3270 "
+                 "tunnel models and watch the delivered DSCP change.",
+         "cmds": ["## On PE2:",
+                  "delete class-of-service interfaces ge-0/0/3 unit 100 rewrite-rules dscp EGRESS-DSCP",
+                  "commit",
+                  "## Re-run track_feed and re-read the console, then restore:",
+                  "rollback 1",
+                  "commit"],
+         "note": "With the rewrite applied you are in the uniform model: the "
+                 "delivered DSCP is rebuilt from the forwarding class, so AF31 comes "
+                 "out as AF41. With it removed you are closer to the pipe model: the "
+                 "customer's original DSCP survives untouched end to end. Same "
+                 "network, different contract with the customer, one config line."},
+        {"step": "Push a bottleneck onto a core link and find out whether marking "
+                 "buys any protection under real congestion.",
+         "cmds": ["## GNS3 2.2.59 has no bandwidth filter; the only link filters "
+                  "available are frequency_drop, packet_loss, delay (latency and "
+                  "jitter), corrupt, and bpf.",
+                  "## Right-click the PE1 to P1 link, Packet filters:",
+                  "##   Packet loss 5 %, Latency 80 ms, Jitter 20 ms, then Apply",
+                  "## Watch the console loss and jitter columns for 30 seconds.",
+                  "## Clear the filters and confirm recovery."],
+         "note": "GNS3 link filters are DSCP-blind: they degrade every packet on the "
+                 "link equally, so they can prove the network got worse but never "
+                 "that premium traffic was protected while bulk traffic was not. The "
+                 "real answer to that question was measured separately with class-of-"
+                 "service shaping (qos-e2e/spike_scheduling.md): 'shaping-rate 5m' "
+                 "committed cleanly on PE1's core interface, Junos even recomputed "
+                 "the scheduler's bandwidth math against it, and two competing flows, "
+                 "one EF-marked and one unmarked, were then offered at 20 Mbps each, "
+                 "40 Mbps combined into that 5 Mbps ceiling. Both flows sustained "
+                 "their full offered rate through the shaper for the whole 30-second "
+                 "test with zero percent loss. The control plane confirmed a policy "
+                 "the forwarding plane never applied. This lab does not demonstrate "
+                 "protection under congestion, and it should not be shown as if it "
+                 "does. That gap is exactly why you test forwarding behaviour rather "
+                 "than trust 'show' output, and it is a more honest lesson for a "
+                 "software audience than a scripted demo that quietly cannot fail."},
+    ],
+    "verify": [
+        {"cmd": "The console ledger on Client2",
+         "expect": "  STREAM         ASKED        ARRIVED       PACKETS    LOSS    JITTER  VERDICT\n"
+                   "  ----------------------------------------------------------------------------------\n"
+                   "  c2_messaging   CS6 (48)     CS6 (48)           90    0.0%     4.8ms  honored\n"
+                   "  fmv_stream     AF41 (34)    AF41 (34)        4493    0.2%     5.8ms  honored\n"
+                   "  imagery_push   EF (46)      CS1 (8)         60313     n/a       n/a  RE-MARKED AT GATEWAY\n"
+                   "  track_feed     AF31 (26)    AF41 (34)         899    0.1%     4.7ms  CLASS COLLAPSED",
+         "read": "This is the real console output this lab produced (re-measured "
+                 "2026-08-06 after commit 52daca5's TCP reassembly fix, with the "
+                 "column header exactly as render_tui.render() emits it: ARRIVED, "
+                 "not DELIVERED), not an approximation. imagery_push's PACKETS "
+                 "column (60313) matches the sender's own reported chunk count "
+                 "exactly on this run; that agreement is the evidence that TCP "
+                 "reassembly is working, not merely plausible. c2_messaging and "
+                 "fmv_stream were both delivered "
+                 "exactly what they asked for: honored. track_feed asked for AF31 and "
+                 "was delivered AF41: CLASS COLLAPSED, and nothing is broken. AF31 "
+                 "and AF41 both collapse into assured-forwarding at the ingress PE, "
+                 "only the class crosses the core, and the egress rewrite rebuilds a "
+                 "DSCP from the class alone with no way to know which of the two "
+                 "original values went in. imagery_push claimed EF, a real class in "
+                 "this network with genuine strict-high scheduling, and was delivered "
+                 "CS1 anyway: RE-MARKED AT GATEWAY, because the untrusted-remark "
+                 "filter classifies on flow identity rather than on the claim. Its "
+                 "loss and jitter columns read n/a deliberately: imagery_push runs "
+                 "over TCP, and TCP does not lose data, it retransmits, so a loss "
+                 "percentage there would describe retransmissions rather than "
+                 "delivery and would be meaningless next to the UDP-style figures on "
+                 "the other three rows. That distinction is worth making to a "
+                 "software audience on its own."},
+        {"cmd": "show class-of-service interface ge-0/0/3 (on PE1)",
+         "expect": "  Logical interface: ge-0/0/3.100\n"
+                   "    Classifier   DSCP-TRUSTED   dscp",
+         "read": "The BA classifier is bound to the customer-facing unit. If this is "
+                 "missing, every customer DSCP falls to best-effort and all four "
+                 "streams receive identical treatment no matter what they marked. "
+                 "This is also the check to lean on instead of queue counters: this "
+                 "platform's 'show interfaces queue' returns no per-queue data at "
+                 "all (see M5's verify section for the full explanation), so "
+                 "classifier and rewrite-rule configuration plus a packet capture are "
+                 "the only way to confirm where a packet actually landed."},
+        {"cmd": "python qos_trace.py track_feed",
+         "expect": "1  application asks         Client1            AF31 (26)\n"
+                   "4  gateway decides          PE1 ge-0/0/3.100   BA=on MF=on -> assured-forwarding\n"
+                   "5  collapse into label      PE1 core egress    EXP 100\n"
+                   "7  reverse translation      PE2 ge-0/0/3.100   rewrite=on -> DSCP 34",
+         "read": "The whole chain on one screen. Stage 4 shows whether both "
+                 "classifiers are in force, and stage 7 shows the delivered DSCP "
+                 "differing from the one the application asked for."},
+    ],
+    "screenshot": "M7 verification: the console ledger showing collapse and re-mark",
+    "breakfix": {
+        "scenario":
+            "An audit reports that a bulk imagery transfer is receiving Expedited "
+            "Forwarding treatment end to end, ahead of command and control traffic. "
+            "Every IS-IS adjacency is Up, the L3VPN is healthy, the core is marking "
+            "EXP faithfully, and the DSCP classifier on the ingress PE is present "
+            "and correct. The application team confirms their transfer does set EF "
+            "on its socket, and insists this is legitimate because the classifier "
+            "accepts the value.",
+        "task":
+            "Restore correct treatment so the bulk transfer is carried as best "
+            "effort regardless of what it marks, without changing the behaviour of "
+            "any other stream and without asking the application team to change "
+            "their code. Prove the fix from the receiving application's own output, "
+            "not only from the router CLI.",
+        "hint":
+            "A behaviour-aggregate classifier is not a security control. It maps "
+            "whatever DSCP arrives to a forwarding class and believes the customer "
+            "completely, which is exactly what it is designed to do. Something else "
+            "has to disbelieve them. That something acts on the flow's identity "
+            "rather than its marking, and it must be applied in the input direction "
+            "on the customer-facing logical unit to take effect before "
+            "classification. Compare 'show class-of-service interface ge-0/0/3' and "
+            "'show configuration interfaces ge-0/0/3 unit 100' on the box against "
+            "the generated configs/stage7-qos-e2e/PE1.set and look for the object "
+            "that exists in the file but not on the router. Queue counters will not "
+            "flag this on their own, because this platform does not expose per-queue "
+            "counters at all, and even where placement can be shown, placement "
+            "follows classification, and the classification is doing exactly what "
+            "it was told.",
+    },
+    "brief": [
+        "Trace one track_feed packet end to end. Name the DSCP it carries leaving "
+        "the application, the forwarding class it is assigned at the ingress PE, the "
+        "EXP value it carries on a core link, and the DSCP it is delivered with. "
+        "Then explain why the first and the last of those differ, without using the "
+        "word 'bug'.",
+        "Explain the difference between a behaviour-aggregate classifier and a "
+        "multifield classifier. Say which one enforces a trust boundary, why the "
+        "other one cannot, and what would happen if you deployed only the first.",
+        "A software team asks you to guarantee their application priority by having "
+        "it mark itself EF. Give them a complete answer: what marking does and does "
+        "not achieve, where the decision actually gets made, how many distinct "
+        "treatments the core can express, and what they would need to agree with "
+        "the network team for their marking to mean anything at all.",
+    ],
+}
+
+M8 = {
+    "code": "009",
+    "id": "M8",
+    "title": "M8 Capstone Break/Fix and Brief",
     "duration": "90 min",
     "objective":
         "Restore a network carrying three simultaneous faults across the underlay, "
@@ -1290,7 +1567,7 @@ M7 = {
         "and deliver a five-minute root-cause brief. This capstone tests diagnosis "
         "and communication, not your ability to type new configuration.",
     "prereq":
-        "M0 through M6 are complete and previously verified on this pod, and the "
+        "M0 through M7 are complete and previously verified on this pod, and the "
         "instructor has loaded the capstone fault set so that service is currently "
         "down before you begin.",
     "primer": [
@@ -1342,13 +1619,13 @@ M7 = {
          "note": "For each remote PE loopback expect two colored entries, one ending "
                  "in -128 (IGP metric, algo 128) and one ending in -129 (delay, algo "
                  "129), each pushing the remote node-SID. From PE1 both "
-                 "10.0.0.2-128<c>/64 and 10.0.0.2-129<c>/64 should be present. If a "
+                 "10.20.255.2-128<c>/64 and 10.20.255.2-129<c>/64 should be present. If a "
                  "plane looks wrong here, suspect the SPF result below it before "
                  "blaming Flex-Algo itself."},
         {"step": "Step 3. Check the VRF service steering. Defer judgement until the "
                  "layers below are clean.",
          "cmds": ["show route table CUST_A.inet.0",
-                  "show route receive-protocol bgp 10.0.0.11 table bgp.l3vpn.0"],
+                  "show route receive-protocol bgp 10.20.255.11 table bgp.l3vpn.0"],
          "note": "A clean result is the remote CE prefixes present in "
                  "CUST_A.inet.0. If the VRF table is empty while the routes are "
                  "clearly present in bgp.l3vpn.0, that points at an import route-"
@@ -1369,13 +1646,13 @@ M7 = {
                  "PE classification."},
         {"step": "Step 6. Check the IS-IS route to the remote SID and its TI-LFA "
                  "backup.",
-         "cmds": ["show isis route 10.0.0.2 extensive",
+         "cmds": ["show isis route 10.20.255.2 extensive",
                   "show isis database"],
          "note": "From PE1 the route to PE2 should show the expected primary paths "
                  "toward SID 16002 and TILFA computed MPLS paths with Valid: 1. This "
                  "is where an underlay metric fault becomes visible: compare the "
                  "advertised link metrics in the database against the design and "
-                 "check the total cost of show route 10.0.0.2 against the expected 40. "
+                 "check the total cost of show route 10.20.255.2 against the expected 40. "
                  "This is the lowest layer where the capstone can bite, so fix "
                  "anything wrong here before looking higher."},
         {"step": "Step 7. Check the mpls.0 transit label table for a clean SID "
@@ -1389,7 +1666,7 @@ M7 = {
                  "cleanly observable once Step 6 has put traffic back on the correct "
                  "path, so re-run this check after any underlay fix."},
         {"step": "Step 8. Confirm end-to-end tunnel resolution in inet.3.",
-         "cmds": ["show route 10.0.0.2 table inet.3 extensive"],
+         "cmds": ["show route 10.20.255.2 table inet.3 extensive"],
          "note": "From PE1 the entry for PE2 must show Label operation: Push 16002 "
                  "toward the correct next-hop. If inet.3 has no entry or the push is "
                  "wrong, all VRF routes stay stranded in bgp.l3vpn.0 no matter how "
@@ -1400,16 +1677,16 @@ M7 = {
     "verify": [
         {"cmd": "show isis adjacency",
          "expect": "Interface             System   L State   Hold (secs)\n"
-                   "ge-0/0/1.0            P1       2  Up            23\n"
-                   "ge-0/0/2.0            P2       2  Up            19",
+                   "ge-0/0/1.0            C1       2  Up            23\n"
+                   "ge-0/0/2.0            C2       2  Up            19",
          "read": "Run on each router. Every expected neighbor is Up across both "
                  "planes, confirming the underlay is whole and metrics are back to "
                  "the design so SPF prefers the intended paths."},
-        {"cmd": "traceroute mpls segment-routing isis 10.0.0.2",
+        {"cmd": "traceroute mpls segment-routing isis 10.20.255.2",
          "expect": "Probe options: retries 3, exp 7\n"
                    "  ttl  Label  Protocol   Address        Previous Hop   Probe Status\n"
-                   "    1  16002  L-ISIS     10.1.1.2       (null)         Success\n"
-                   "  Path 1 via ge-0/0/1.0 destination 10.0.0.2\n"
+                   "    1  16002  L-ISIS     10.20.0.2       (null)         Success\n"
+                   "  Path 1 via ge-0/0/1.0 destination 10.20.255.2\n"
                    "  mpls-traceroute completed",
          "read": "From PE1 the SR label-switched path to PE2 completes end to end "
                  "with label 16002. This proves the transport layer is healthy: the "
@@ -1433,7 +1710,7 @@ M7 = {
                  "CUST_A service is proven from the customer edge, not just from the "
                  "PE."},
     ],
-    "screenshot": "M7 verification: full service restored and root-cause brief delivered",
+    "screenshot": "M8 verification: full service restored and root-cause brief delivered",
     "breakfix": {
         "scenario":
             "The instructor has loaded the capstone fault set and customer service is "
@@ -1472,4 +1749,4 @@ M7 = {
     ],
 }
 
-MODULES = [M0, M1, M2, M3, M4, M5, M6, M7]
+MODULES = [M0, M1, M2, M3, M4, M5, M6, M7, M8]

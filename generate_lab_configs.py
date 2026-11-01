@@ -11,7 +11,7 @@ def load_data():
     return nodes, links
 
 def iso_net(loopback):
-    # 10.0.0.1 -> 0100.0000.0001 -> 49.0001.0100.0000.0001.00
+    # 10.20.255.1 -> 010020255001 -> 49.0001.0100.2025.5001.00
     octs = [int(x) for x in loopback.split(".")]
     packed = "".join(f"{o:03d}" for o in octs)        # 12 digits
     groups = [packed[i:i+4] for i in range(0, 12, 4)]
@@ -47,17 +47,27 @@ def block_base(node, nodes, links):
         "set system login user lab class super-user authentication encrypted-password \"$6$0OeCYa28gJMGyhoq$.jbWNa7gp5NIGSOpaCZuz0vvo.gOCwier5XtM.vBvBjIM3.vqOA0.Q9tQQiLeF3kGdset19/quynqKmyFGXBs/\"",
         "set chassis fpc 0 lite-mode",
         "set chassis network-services enhanced-ip",
+        # vJunos ships with ZTP enabled; on a fresh boot it retries auto-image
+        # upgrade forever, spams the console, and starves the routing daemons.
+        "delete chassis auto-image-upgrade",
         "set groups MTU interfaces <ge-*> mtu 9192",
         "set apply-groups MTU",
-        # vJunos factory default puts fxp0 on DHCP; a static address conflicts with it.
-        "delete interfaces fxp0 unit 0 family inet dhcp",
+        # Delete the whole inet family, not just the DHCP stanza: the factory
+        # default puts fxp0 on DHCP, and `load set` merges, so a changed mgmt
+        # address would otherwise sit alongside the previous one forever.
+        "delete interfaces fxp0 unit 0 family inet",
         f"set interfaces fxp0 unit 0 family inet address {node['mgmt_ip']}/24",
         "",
         "# --- Loopback ---",
+        # Stages are pushed with `load set`, which merges. Without these deletes a
+        # changed loopback leaves the old address in place beside the new one, and
+        # a second ISO NET on lo0 breaks IS-IS outright.
+        "delete interfaces lo0 unit 0 family inet",
         f"set interfaces lo0 unit 0 family inet address {rid}/32",
     ]
     if role in ("pe", "core", "transit"):
         c += [
+            "delete interfaces lo0 unit 0 family iso",
             "set interfaces lo0 unit 0 family mpls",
             f"set interfaces lo0 unit 0 family iso address {iso_net(rid)}",
             "",
@@ -65,6 +75,9 @@ def block_base(node, nodes, links):
         ]
         for li, lip, peer, pip, link in transit_links(host, links):
             c += [
+                # Same merge hazard as fxp0/lo0: re-addressing a transit link
+                # must drop the old address or both end up on the interface.
+                f"delete interfaces {li} unit 0 family inet",
                 f"set interfaces {li} unit 0 family inet address {lip}/30",
                 f"set interfaces {li} unit 0 family iso",
                 f"set interfaces {li} unit 0 family mpls",
@@ -119,7 +132,7 @@ def block_sr(node, nodes, links):
         c.append(f"set protocols mpls interface {li}.0")
     return c
 
-CORE_LOOPBACKS = ("10.0.0.11", "10.0.0.12")
+CORE_LOOPBACKS = ("10.20.255.11", "10.20.255.12")
 
 # (vrf, vlan, rt, pe1_ce_subnet, pe1_ce_ip, ce1_ip, pe2_ce_subnet, pe2_ce_ip, ce2_ip)
 VRFS = [
@@ -220,13 +233,19 @@ def block_flexalgo(node, nodes, links):
         "# --- STAGE 4: Flexible-Algorithm TE ---",
         "set routing-options flex-algorithm 128 definition metric-type igp-metric",
         "set routing-options flex-algorithm 128 color 128",
-        "set routing-options flex-algorithm 128 use-transport-class",
         "set routing-options flex-algorithm 129 definition metric-type delay-metric",
         "set routing-options flex-algorithm 129 color 129",
-        "set routing-options flex-algorithm 129 use-transport-class",
-        "set routing-options transport-class auto-create",
-        "set routing-options transport-class name ipv4-tc-128-igp color 128",
-        "set routing-options transport-class name ipv4-tc-129-delay color 129",
+        # Transport classes (use-transport-class, transport-class auto-create, and
+        # the per-node route-distinguisher-id they required) were removed here.
+        # Turning them on pulled SR tunnel routes out of inet.3 and into
+        # per-transport-class RIBs that don't exist on this Junos version, so
+        # inet.3 ended up empty everywhere. With no inet.3, PE loopbacks could
+        # not resolve as a BGP next hop, so every bgp.l3vpn.0 route hid on the
+        # route reflector and no VPN routes were ever installed on the PEs.
+        # Flex-algo path computation itself does not depend on transport
+        # classes, so it is kept: the color-based algorithm definitions above
+        # and the algorithm 128/129 prefix-segment SID exports below still
+        # steer traffic onto the flex-algo topologies.
         "set protocols isis source-packet-routing flex-algorithm 128",
         "set protocols isis source-packet-routing flex-algorithm 129",
         "set policy-options policy-statement EXPORT-FLEX-ALGO-SID term sid from interface lo0.0",
@@ -304,6 +323,78 @@ def block_frr(node, nodes, links):
         "set groups ISIS-PARAMETERS protocols isis backup-spf-options use-source-packet-routing",
     ]
 
+def block_qos_e2e(node, nodes, links):
+    """Stage 7: end-to-end DSCP to EXP translation with a trust boundary.
+
+    Extends stage 5's two classes to four so that multiple customer DSCPs
+    visibly collapse into fewer EXP values, adds a behaviour-aggregate
+    classifier that trusts customer marking, a multifield filter that overrides
+    it for a known bulk flow, and an egress rewrite that reconstructs a DSCP
+    from the forwarding class on the far side.
+    """
+    if node["role"] not in ("pe", "core", "transit"):
+        return []
+    host = node["hostname"]
+    # EGRESS-DSCP and UNTRUSTED-REMARK are bound to unit 100 only, deliberately:
+    # both Linux clients (Client1, Client2) live in CUST_A, which rides unit
+    # 100 on these PEs, so unit 200 (CUST_B) never needs either object. The
+    # asymmetry against DSCP-TRUSTED, which is bound to both units, is not an
+    # oversight.
+    c = [
+        "# --- STAGE 7: End-to-end QoS marking ---",
+        "set class-of-service forwarding-classes queue 2 assured-forwarding",
+        "set class-of-service forwarding-classes queue 3 network-control",
+        "set class-of-service schedulers AF-SCHEDULER transmit-rate percent 35",
+        "set class-of-service schedulers AF-SCHEDULER buffer-size percent 35",
+        "set class-of-service schedulers NC-SCHEDULER transmit-rate percent 5",
+        "set class-of-service schedulers NC-SCHEDULER buffer-size percent 5",
+        # Stage 5 sized these for two classes. Re-issuing set overwrites the leaf.
+        "set class-of-service schedulers BE-SCHEDULER transmit-rate percent 40",
+        "set class-of-service schedulers BE-SCHEDULER buffer-size percent 40",
+        "set class-of-service schedulers PREMIUM-SCHEDULER buffer-size percent 20",
+        "set class-of-service scheduler-maps SR-MPLS-SMAP forwarding-class assured-forwarding scheduler AF-SCHEDULER",
+        "set class-of-service scheduler-maps SR-MPLS-SMAP forwarding-class network-control scheduler NC-SCHEDULER",
+        "set class-of-service classifiers exp SR-MPLS-EXP-CLASS forwarding-class network-control loss-priority low code-points 110",
+        "set class-of-service classifiers exp SR-MPLS-EXP-CLASS forwarding-class assured-forwarding loss-priority low code-points 100",
+        "set class-of-service rewrite-rules exp SR-MPLS-EXP-REWRITE forwarding-class network-control loss-priority low code-point 110",
+        "set class-of-service rewrite-rules exp SR-MPLS-EXP-REWRITE forwarding-class assured-forwarding loss-priority low code-point 100",
+    ]
+    for li, lip, peer, pip, link in transit_links(host, links):
+        c.append(f"set class-of-service interfaces {li} scheduler-map SR-MPLS-SMAP")
+    if node["role"] == "pe":
+        c += [
+            # Stage 5's two-code-point classifier is superseded. Pushes merge
+            # rather than replace, so it must be removed explicitly.
+            "delete class-of-service interfaces ge-0/0/3 unit 100 classifiers dscp DSCP-INGRESS",
+            "delete class-of-service interfaces ge-0/0/3 unit 200 classifiers dscp DSCP-INGRESS",
+            "delete class-of-service classifiers dscp DSCP-INGRESS",
+            # BA classifier: the network saying "I trust what you marked".
+            "set class-of-service classifiers dscp DSCP-TRUSTED forwarding-class network-control loss-priority low code-points 110000",
+            "set class-of-service classifiers dscp DSCP-TRUSTED forwarding-class premium-priority loss-priority low code-points 101110",
+            "set class-of-service classifiers dscp DSCP-TRUSTED forwarding-class assured-forwarding loss-priority low code-points 100010",
+            "set class-of-service classifiers dscp DSCP-TRUSTED forwarding-class assured-forwarding loss-priority low code-points 011010",
+            "set class-of-service classifiers dscp DSCP-TRUSTED forwarding-class best-effort loss-priority low code-points 001000",
+            "set class-of-service classifiers dscp DSCP-TRUSTED forwarding-class best-effort loss-priority low code-points 000000",
+            "set class-of-service interfaces ge-0/0/3 unit 100 classifiers dscp DSCP-TRUSTED",
+            "set class-of-service interfaces ge-0/0/3 unit 200 classifiers dscp DSCP-TRUSTED",
+            # MF classifier: the network saying "I know who you are".
+            "set firewall family inet filter UNTRUSTED-REMARK term imagery from protocol tcp",
+            "set firewall family inet filter UNTRUSTED-REMARK term imagery from destination-port 9300",
+            "set firewall family inet filter UNTRUSTED-REMARK term imagery then forwarding-class best-effort",
+            "set firewall family inet filter UNTRUSTED-REMARK term imagery then dscp cs1",
+            "set firewall family inet filter UNTRUSTED-REMARK term imagery then accept",
+            "set firewall family inet filter UNTRUSTED-REMARK term default then accept",
+            "set interfaces ge-0/0/3 unit 100 family inet filter input UNTRUSTED-REMARK",
+            # Egress: rebuild a DSCP from the forwarding class. This is where
+            # AF31 becomes AF41, because only the class survived the core.
+            "set class-of-service rewrite-rules dscp EGRESS-DSCP forwarding-class network-control loss-priority low code-point 110000",
+            "set class-of-service rewrite-rules dscp EGRESS-DSCP forwarding-class premium-priority loss-priority low code-point 101110",
+            "set class-of-service rewrite-rules dscp EGRESS-DSCP forwarding-class assured-forwarding loss-priority low code-point 100010",
+            "set class-of-service rewrite-rules dscp EGRESS-DSCP forwarding-class best-effort loss-priority low code-point 001000",
+            "set class-of-service interfaces ge-0/0/3 unit 100 rewrite-rules dscp EGRESS-DSCP",
+        ]
+    return c
+
 # Stages are appended by later tasks: (dirname, block_fn).
 STAGES = [
     ("stage0-base", block_base),
@@ -313,6 +404,7 @@ STAGES = [
     ("stage4-flexalgo", block_flexalgo),
     ("stage5-qos", block_qos),
     ("stage6-frr", block_frr),
+    ("stage7-qos-e2e", block_qos_e2e),
 ]
 
 def write_all():

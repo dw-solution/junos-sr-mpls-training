@@ -18,11 +18,12 @@ import csv, os, re, socket, subprocess, sys, time
 import requests
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SERVER = os.environ.get("GNS3_HOST", "192.168.90.230")
+SERVER = os.environ.get("GNS3_HOST", "10.1.1.5")
 PROJECT = os.environ.get("GNS3_PROJECT", "SR-MPLS-Training")
 LOGIN_PW = os.environ.get("LAB_PASSWORD", "labpassword")
 BOOT_WAIT = int(os.environ.get("BOOT_WAIT", "900"))   # seconds to wait for login:
-ORDER = ["PE1", "PE2", "C1", "C2", "P1", "P2", "P3", "P4", "CE1", "CE2"]
+PING_WAIT = int(os.environ.get("PING_WAIT", "180"))   # seconds for fxp0 to answer
+ORDER = ["PE1", "PE2", "C1", "C2", "CE1", "CE2"]
 
 
 def load_nodes():
@@ -241,15 +242,24 @@ def bootstrap(host, port, mgmt):
                 return f"FAILED {host}: commit error -> {host}.console.log"
             c.expect(r">\s*$", 20)
             # Definitive check: can this host reach fxp0 now that stage0 is committed?
+            # fxp0 comes up well after `commit complete` returns -- the address is
+            # in the config before the interface is ready to answer ARP. A tight
+            # loop here reported PARTIAL on every node of a run that was in fact
+            # completely successful, so give it a real deadline instead of a
+            # fixed number of fast retries.
             ok = False
-            for _ in range(6):
+            deadline = time.time() + PING_WAIT
+            while time.time() < deadline:
                 if subprocess.run(["ping", "-c", "1", "-W", "2", mgmt],
                                   stdout=subprocess.DEVNULL,
                                   stderr=subprocess.DEVNULL).returncode == 0:
                     ok = True
                     break
-                time.sleep(1)
-            return f"{'OK' if ok else 'PARTIAL'} {host}: fxp0 {mgmt} {'reachable' if ok else 'committed but not pingable yet'} -> {host}.console.log"
+                time.sleep(3)
+            if ok:
+                return f"OK {host}: fxp0 {mgmt} reachable -> {host}.console.log"
+            return (f"PARTIAL {host}: committed, but fxp0 {mgmt} did not answer within "
+                    f"{PING_WAIT}s -> {host}.console.log")
         finally:
             c.close()
 

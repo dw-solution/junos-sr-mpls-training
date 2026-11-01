@@ -37,7 +37,8 @@ def main():
 
     # 1. Every stage dir exists and has a file per node.
     stages = ["stage0-base", "stage1-isis", "stage2-sr",
-              "stage3-l3vpn", "stage4-flexalgo", "stage5-qos", "stage6-frr"]
+              "stage3-l3vpn", "stage4-flexalgo", "stage5-qos", "stage6-frr",
+              "stage7-qos-e2e"]
     for st in stages:
         d = os.path.join(CFG, st)
         check(os.path.isdir(d), f"missing stage dir {st}", errs)
@@ -46,6 +47,12 @@ def main():
         for h in nodes:
             check(os.path.exists(os.path.join(d, h + ".set")),
                   f"missing {st}/{h}.set", errs)
+
+    # 1b. Base: ZTP disabled on every node. Left on, vJunos retries auto-image
+    # upgrade forever, floods the console, and starves the routing daemons.
+    for h in nodes:
+        check("delete chassis auto-image-upgrade" in read("stage0-base", h),
+              f"{h}: stage0 does not disable auto-image-upgrade (ZTP)", errs)
 
     # 2. Base: enhanced-ip + loopback + ISO NET on every SR node.
     for h in sr_nodes:
@@ -133,6 +140,55 @@ def main():
         for h in ("PE1", "PE2"):
             c = read("stage5-qos", h)
             check("classifiers dscp DSCP-INGRESS" in c, f"{h}: dscp classifier missing", errs)
+
+    # --- Stage 7: end-to-end QoS marking ---
+    s7 = "stage7-qos-e2e"
+    for host in sr_nodes:
+        cfg = read(s7, host)
+        for mandate in MANDATES:
+            check(mandate in cfg, f"{s7} {host}: lost mandate '{mandate}'", errs)
+        check("set protocols isis source-packet-routing srgb start-label 16000 index-range 8000" in cfg,
+              f"{s7} {host}: SRGB changed", errs)
+        for fc in ("best-effort", "premium-priority", "assured-forwarding", "network-control"):
+            check(f"scheduler-maps SR-MPLS-SMAP forwarding-class {fc}" in cfg,
+                  f"{s7} {host}: {fc} missing from scheduler map", errs)
+        for fc, cp in (("network-control", "110"), ("premium-priority", "101"),
+                       ("assured-forwarding", "100"), ("best-effort", "000")):
+            needle = ("set class-of-service rewrite-rules exp SR-MPLS-EXP-REWRITE "
+                      f"forwarding-class {fc} loss-priority low code-point {cp}")
+            check(needle in cfg, f"{s7} {host}: EXP rewrite missing {fc} {cp}", errs)
+
+    for host in [h for h, r in nodes.items() if r["role"] == "pe"]:
+        cfg = read(s7, host)
+        for fc, cp in (("network-control", "110000"), ("premium-priority", "101110"),
+                       ("assured-forwarding", "100010"), ("assured-forwarding", "011010"),
+                       ("best-effort", "001000"), ("best-effort", "000000")):
+            needle = ("set class-of-service classifiers dscp DSCP-TRUSTED "
+                      f"forwarding-class {fc} loss-priority low code-points {cp}")
+            check(needle in cfg, f"{s7} {host}: DSCP-TRUSTED missing {fc} {cp}", errs)
+        check("set class-of-service interfaces ge-0/0/3 unit 100 classifiers dscp DSCP-TRUSTED" in cfg,
+              f"{s7} {host}: DSCP-TRUSTED not bound to the PE-CE unit", errs)
+        # Stage 5's classifier is emitted earlier in the cumulative file, so the
+        # requirement is that stage 7 explicitly deletes it, not that the string
+        # is absent. Guarded so a missing delete line reports a named error
+        # instead of raising ValueError out of cfg.index().
+        delete_line = "delete class-of-service classifiers dscp DSCP-INGRESS"
+        set_line = "set class-of-service classifiers dscp DSCP-INGRESS"
+        if delete_line not in cfg:
+            errs.append(f"{s7} {host}: superseded DSCP-INGRESS is not deleted")
+        elif cfg.index(delete_line) < cfg.index(set_line):
+            errs.append(f"{s7} {host}: DSCP-INGRESS delete appears before its set")
+        check("set interfaces ge-0/0/3 unit 100 family inet filter input UNTRUSTED-REMARK" in cfg,
+              f"{s7} {host}: UNTRUSTED-REMARK not bound as an input filter", errs)
+        check("term imagery then forwarding-class best-effort" in cfg,
+              f"{s7} {host}: UNTRUSTED-REMARK does not force best-effort", errs)
+        for fc, cp in (("network-control", "110000"), ("premium-priority", "101110"),
+                       ("assured-forwarding", "100010"), ("best-effort", "001000")):
+            needle = ("set class-of-service rewrite-rules dscp EGRESS-DSCP "
+                      f"forwarding-class {fc} loss-priority low code-point {cp}")
+            check(needle in cfg, f"{s7} {host}: EGRESS-DSCP missing {fc} {cp}", errs)
+        check("set class-of-service interfaces ge-0/0/3 unit 100 rewrite-rules dscp EGRESS-DSCP" in cfg,
+              f"{s7} {host}: EGRESS-DSCP rewrite not bound", errs)
 
     if errs:
         print("VALIDATION FAILED:")

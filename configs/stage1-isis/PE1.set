@@ -8,26 +8,31 @@ set system services ssh root-login allow
 set system login user lab class super-user authentication encrypted-password "$6$0OeCYa28gJMGyhoq$.jbWNa7gp5NIGSOpaCZuz0vvo.gOCwier5XtM.vBvBjIM3.vqOA0.Q9tQQiLeF3kGdset19/quynqKmyFGXBs/"
 set chassis fpc 0 lite-mode
 set chassis network-services enhanced-ip
+delete chassis auto-image-upgrade
 set groups MTU interfaces <ge-*> mtu 9192
 set apply-groups MTU
-delete interfaces fxp0 unit 0 family inet dhcp
-set interfaces fxp0 unit 0 family inet address 192.168.90.24/24
+delete interfaces fxp0 unit 0 family inet
+set interfaces fxp0 unit 0 family inet address 10.0.0.40/24
 
 # --- Loopback ---
-set interfaces lo0 unit 0 family inet address 10.0.0.1/32
+delete interfaces lo0 unit 0 family inet
+set interfaces lo0 unit 0 family inet address 10.20.255.1/32
+delete interfaces lo0 unit 0 family iso
 set interfaces lo0 unit 0 family mpls
-set interfaces lo0 unit 0 family iso address 49.0001.0100.0000.0001.00
+set interfaces lo0 unit 0 family iso address 49.0001.0100.2025.5001.00
 
 # --- Transit interfaces (inet + iso + mpls) ---
-set interfaces ge-0/0/1 unit 0 family inet address 10.1.1.1/30
+delete interfaces ge-0/0/1 unit 0 family inet
+set interfaces ge-0/0/1 unit 0 family inet address 10.20.0.1/30
 set interfaces ge-0/0/1 unit 0 family iso
 set interfaces ge-0/0/1 unit 0 family mpls
-set interfaces ge-0/0/2 unit 0 family inet address 10.1.1.17/30
+delete interfaces ge-0/0/2 unit 0 family inet
+set interfaces ge-0/0/2 unit 0 family inet address 10.20.0.9/30
 set interfaces ge-0/0/2 unit 0 family iso
 set interfaces ge-0/0/2 unit 0 family mpls
 
 # --- Routing options ---
-set routing-options router-id 10.0.0.1
+set routing-options router-id 10.20.255.1
 set routing-options autonomous-system 64512
 set routing-options forwarding-table ecmp-fast-reroute
 

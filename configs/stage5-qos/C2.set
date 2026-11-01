@@ -8,29 +8,35 @@ set system services ssh root-login allow
 set system login user lab class super-user authentication encrypted-password "$6$0OeCYa28gJMGyhoq$.jbWNa7gp5NIGSOpaCZuz0vvo.gOCwier5XtM.vBvBjIM3.vqOA0.Q9tQQiLeF3kGdset19/quynqKmyFGXBs/"
 set chassis fpc 0 lite-mode
 set chassis network-services enhanced-ip
+delete chassis auto-image-upgrade
 set groups MTU interfaces <ge-*> mtu 9192
 set apply-groups MTU
-delete interfaces fxp0 unit 0 family inet dhcp
-set interfaces fxp0 unit 0 family inet address 192.168.90.27/24
+delete interfaces fxp0 unit 0 family inet
+set interfaces fxp0 unit 0 family inet address 10.0.0.43/24
 
 # --- Loopback ---
-set interfaces lo0 unit 0 family inet address 10.0.0.12/32
+delete interfaces lo0 unit 0 family inet
+set interfaces lo0 unit 0 family inet address 10.20.255.12/32
+delete interfaces lo0 unit 0 family iso
 set interfaces lo0 unit 0 family mpls
-set interfaces lo0 unit 0 family iso address 49.0001.0100.0000.0012.00
+set interfaces lo0 unit 0 family iso address 49.0001.0100.2025.5012.00
 
 # --- Transit interfaces (inet + iso + mpls) ---
-set interfaces ge-0/0/1 unit 0 family inet address 10.1.1.22/30
+delete interfaces ge-0/0/1 unit 0 family inet
+set interfaces ge-0/0/1 unit 0 family inet address 10.20.0.10/30
 set interfaces ge-0/0/1 unit 0 family iso
 set interfaces ge-0/0/1 unit 0 family mpls
-set interfaces ge-0/0/2 unit 0 family inet address 10.1.1.25/30
+delete interfaces ge-0/0/2 unit 0 family inet
+set interfaces ge-0/0/2 unit 0 family inet address 10.20.0.13/30
 set interfaces ge-0/0/2 unit 0 family iso
 set interfaces ge-0/0/2 unit 0 family mpls
-set interfaces ge-0/0/3 unit 0 family inet address 10.1.1.42/30
+delete interfaces ge-0/0/3 unit 0 family inet
+set interfaces ge-0/0/3 unit 0 family inet address 10.20.0.18/30
 set interfaces ge-0/0/3 unit 0 family iso
 set interfaces ge-0/0/3 unit 0 family mpls
 
 # --- Routing options ---
-set routing-options router-id 10.0.0.12
+set routing-options router-id 10.20.255.12
 set routing-options autonomous-system 64512
 set routing-options forwarding-table ecmp-fast-reroute
 
@@ -47,7 +53,7 @@ set protocols isis interface ge-0/0/1.0 level 2 metric 10
 set protocols isis interface ge-0/0/2.0
 set protocols isis interface ge-0/0/2.0 level 2 metric 10
 set protocols isis interface ge-0/0/3.0
-set protocols isis interface ge-0/0/3.0 level 2 metric 10
+set protocols isis interface ge-0/0/3.0 level 2 metric 30
 
 # --- STAGE 2: SR-MPLS transport ---
 set protocols isis source-packet-routing srgb start-label 16000 index-range 8000
@@ -61,28 +67,23 @@ set protocols mpls interface ge-0/0/3.0
 
 # --- STAGE 3: L3VPN overlay (iBGP) ---
 set protocols bgp group OVERLAY type internal
-set protocols bgp group OVERLAY local-address 10.0.0.12
+set protocols bgp group OVERLAY local-address 10.20.255.12
 set protocols bgp group OVERLAY family inet-vpn unicast
 set protocols bgp group OVERLAY family evpn signaling
 set protocols bgp group OVERLAY cluster 0.0.0.1
-set protocols bgp group OVERLAY neighbor 10.0.0.1
-set protocols bgp group OVERLAY neighbor 10.0.0.2
-set protocols bgp group OVERLAY neighbor 10.0.0.11
+set protocols bgp group OVERLAY neighbor 10.20.255.1
+set protocols bgp group OVERLAY neighbor 10.20.255.2
+set protocols bgp group OVERLAY neighbor 10.20.255.11
 
 # --- STAGE 4: Flexible-Algorithm TE ---
 set routing-options flex-algorithm 128 definition metric-type igp-metric
 set routing-options flex-algorithm 128 color 128
-set routing-options flex-algorithm 128 use-transport-class
 set routing-options flex-algorithm 129 definition metric-type delay-metric
 set routing-options flex-algorithm 129 color 129
-set routing-options flex-algorithm 129 use-transport-class
-set routing-options transport-class auto-create
-set routing-options transport-class name ipv4-tc-128-igp color 128
-set routing-options transport-class name ipv4-tc-129-delay color 129
 set protocols isis source-packet-routing flex-algorithm 128
 set protocols isis source-packet-routing flex-algorithm 129
 set policy-options policy-statement EXPORT-FLEX-ALGO-SID term sid from interface lo0.0
-set policy-options policy-statement EXPORT-FLEX-ALGO-SID term sid from route-filter 10.0.0.12/32 exact
+set policy-options policy-statement EXPORT-FLEX-ALGO-SID term sid from route-filter 10.20.255.12/32 exact
 set policy-options policy-statement EXPORT-FLEX-ALGO-SID term sid then prefix-segment algorithm 128 index 1012
 set policy-options policy-statement EXPORT-FLEX-ALGO-SID term sid then prefix-segment algorithm 128 node-segment
 set policy-options policy-statement EXPORT-FLEX-ALGO-SID term sid then prefix-segment algorithm 129 index 2012
